@@ -34,4 +34,4 @@ Muhtasar Beyanname Raporu
 
 1. Active NodeJS LTS (Long Term Support) version and associated supported NPM version.  (See https://nodejs.org)
 
-
+URL: https://sapfesappdev.int.trt.net.tr:44304/sap/bc/ui5_ui5/sap/zhvlfimuhtasar?sap-client=100
