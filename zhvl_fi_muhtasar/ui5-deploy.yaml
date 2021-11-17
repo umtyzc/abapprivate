@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://sap.github.io/ui5-tooling/schema/ui5.yaml.json
+
+specVersion: '2.4'
+metadata:
+  name: 'zhvl_fi_muhtasar'
+type: application
+builder:
+  resources:
+    excludes:
+      - /test/**
+      - /localService/**
+  customTasks:
+    - name: deploy-to-abap
+      afterTask: generateCachebusterInfo
+      configuration:
+        target:
+          url: https://sapfesappdev.int.trt.net.tr:44304
+          client: "100"
+        app:
+          name: ZHVL_FIMUHTASAR
+          description: "UY: Muhtasar Beyanname Raporu UI v1"
+          package: ZHVL_FI_GM_MB_FIORI
+          transport: TFDK900593
