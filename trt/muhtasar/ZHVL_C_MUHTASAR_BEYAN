@@ -1,0 +1,120 @@
+@EndUserText.label: 'Muhtasar Beyannamesi Custom CDS Entity'
+@ObjectModel: {
+    query: {
+       implementedBy: 'ABAP:ZHVL_CL_FI_GM_MUHTASAR'
+    }
+}
+@UI.headerInfo: { typeName: 'Muhtasar Beyanname Raporu' ,
+                  typeNamePlural: 'Muhtasar Beyanname Raporu' }
+//@UI.presentationVariant: [{
+//
+//    sortOrder: [
+//
+//       { by: 'belnr' , direction: #DESC}
+//
+//       ],
+//
+//     groupBy: [ 'hesapno'],
+//
+//     visualizations: [{ type: #AS_LINEITEM }]
+//
+//
+//     }]
+define custom entity ZHVL_C_MUHTASAR_BEYAN
+
+{
+      @UI.lineItem     :  [{label:'Belge No',position: 150 ,importance: #HIGH }]
+
+  key belnr            : belnr_d;
+      @UI.selectionField    : [{position: 50 }]
+      @UI.lineItem     :  [{label:'Mali yıl',position: 180 ,importance: #HIGH },
+      {type            : #FOR_INTENT_BASED_NAVIGATION, semanticObjectAction: 'manage', label: 'Muhtasar Beyanname Raporu (TXT İndir)'}]
+      @UI.hidden       : false
+      @Consumption.semanticObject: 'muhtasarexcel2'
+      @Consumption.filter.mandatory: true
+      @Consumption.filter.selectionType: #RANGE
+  key gjahr            : gjahr;
+      @UI.selectionField    : [{position: 10 }]
+      @Consumption.filter.mandatory: true
+      @Consumption.filter.selectionType: #RANGE
+      @Consumption     : { valueHelpDefinition: [{ entity:{ element: 'Bukrs', name: 'ZHVL_VH_BUKRS'} }]
+      }
+  key bukrs            : bukrs;
+      @UI.lineItem     :  [{label:'Sira No',position: 20 ,importance: #HIGH }]
+  key sirano           : syst_tabix;
+      @UI.selectionField    : [{position: 40 }]
+      @Consumption.filter.mandatory: false
+      @Consumption.filter.selectionType: #RANGE
+      bolum            : segment;
+      @UI.lineItem     :  [{label:'Satıcı Kodu', position: 20 ,importance: #HIGH }]
+      satici           : lifnr;
+      @UI.lineItem     :  [{label:'Ad/Unvan', position: 20 ,importance: #HIGH }]
+      adunvan          : abap.char( 70 );
+      @UI.lineItem     :  [{label:'Adres No', position: 30 ,importance: #HIGH }]
+      adresno          : bu_adext;
+      @UI.lineItem     :  [{label:'Adres', position: 30 ,importance: #HIGH }]
+      adres            : abap.char( 100 );
+      @UI.lineItem     :  [{label:'Ülke Kodu', position: 30 ,importance: #HIGH }]
+      ulkekodu         : landa;
+      @UI.lineItem     :  [{label:'TC No', position: 40 ,importance: #HIGH }]
+      tcno             : abap.char( 10 );
+      @UI.lineItem     :  [{label:'Vergi No', position: 50 ,importance: #HIGH }]
+      vergino          : abap.char( 11 );
+      @UI.lineItem     :  [{label:'Vergi Dairesi', position: 60 ,importance: #HIGH }]
+      vergidairesi     : abap.char( 16 );
+      @UI.lineItem     :  [{label:'Kayıt Tarihi', position: 70 ,importance: #HIGH }]
+      budat            : budat;
+      //@UI.selectionField    : [{position: 20 }]
+      @UI.lineItem     :  [{label:'Belge Tarihi', position: 80 ,importance: #HIGH }]
+      //@Consumption.filter.mandatory: false
+      @Consumption.filter.selectionType: #RANGE
+      bldat            : bldat;
+      @UI.selectionField    : [{position: 20 }]
+      //@UI.lineItem     :  [{label:'Belge Tarihi Başlangıç', position: 80 ,importance: #HIGH }]
+      @Consumption.filter.mandatory: true
+      @Consumption.filter.selectionType: #SINGLE
+      @EndUserText.label: 'Belge Tarihi Başlangıç'
+      bldatbaslangic   : bldat;
+      @UI.selectionField    : [{position: 30 }]
+      //@UI.lineItem     :  [{label:'Belge Tarihi Bitiş', position: 80 ,importance: #HIGH }]
+      @Consumption.filter.mandatory: true
+      @Consumption.filter.selectionType: #SINGLE
+      @EndUserText.label: 'Belge Tarihi Bitiş'
+      bldatbitis       : bldat;
+      @UI.lineItem     :  [{label:'Fatura No', position: 90 ,importance: #HIGH }]
+      faturano         : xblnr1;
+      //@Semantics.amount.currencyCode: 'belgeparabirimi'
+      @UI.lineItem     :  [{label:'Belge Toplam Tutarı', position: 100 ,importance: #HIGH }]
+      belgetoplamtutar : abap.curr( 13, 2 );
+      @UI.lineItem     :  [{label:'Para Birimi', position: 110 ,importance: #HIGH }]
+      @Semantics.currencyCode: true
+      belgeparabirimi  : waers;
+      //@Semantics.amount.currencyCode: 'belgeparabirimi'
+      @UI.lineItem     :  [{label:'Vergi Tutarı', position: 120 ,importance: #HIGH }]
+      vergitutari      : abap.curr( 13, 2 );
+      @UI.lineItem     :  [{label:'Hesap No', position: 130 ,importance: #HIGH }]
+      @UI.selectionField    : [{position: 50 }]
+      @Consumption.filter.mandatory: false
+      @Consumption.filter.selectionType: #RANGE
+      hesapno          : hkont;
+      @UI.lineItem     :  [{label:'Hesap Açıklaması', position: 140 ,importance: #HIGH }]
+      anahesapmetin    : txt50_skat;
+      @UI.lineItem     :  [{label:'Borç/Alacak Göstergesi', position: 150 ,importance: #HIGH },
+      {type            : #FOR_INTENT_BASED_NAVIGATION, semanticObjectAction: 'manage', label: 'Vergiye Tabi İşlemler (TXT İndir)'}]
+      @UI.hidden       : true
+      @Consumption.semanticObject: 'muhtasarexcel'
+      borcalacak       : shkzg;
+      @UI.lineItem     :  [{label:'Borç/Alacak Göstergesi', position: 150 ,importance: #HIGH }]
+      borcalacakmetni  : abap.char( 10 );
+      @UI.lineItem     :  [{label:'BDP Kodu', position: 160 ,importance: #HIGH }]
+      bdpkodu          : abap.char(250);
+      @UI.lineItem     :  [{label:'BDP Açıklaması', position: 170 ,importance: #HIGH }]
+      bdpaciklama      : abap.char( 250 );
+      @UI.lineItem     :  [{label:'KDV Tevkifatı Kodu', position: 130 ,importance: #HIGH }]
+      kdvtevkifatkodu  : abap.char( 1 );
+      @UI.lineItem     :  [{label:'KDV Tevkifat Tanımı', position: 140 ,importance: #HIGH }]
+      kdvtevkifattanim  : abap.char( 20 );
+      @UI.lineItem     :  [{label:'Belge Türü', position: 190 ,importance: #HIGH }]
+      blarttxt  : abap.char( 50 );
+      
+}
