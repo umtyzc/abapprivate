@@ -1,0 +1,317 @@
+CLASS lhc_hurdakom DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS get_instance_features FOR INSTANCE FEATURES
+      IMPORTING keys REQUEST requested_features FOR hurdakom RESULT result.
+
+    METHODS precheck_update FOR PRECHECK
+      IMPORTING entities FOR UPDATE hurdakom.
+
+*    METHODS fill_input_dependent_values FOR DETERMINE ON MODIFY
+*      IMPORTING keys FOR hurdakom~fill_input_dependent_values.
+    METHODS komisyongetir FOR MODIFY
+      IMPORTING keys FOR ACTION hurdakom~komisyongetir RESULT result.
+    METHODS get_instance_authorizations FOR INSTANCE AUTHORIZATION
+      IMPORTING keys REQUEST requested_authorizations FOR hurdakom RESULT result.
+    METHODS check_pernr FOR VALIDATE ON SAVE
+      IMPORTING keys FOR hurdakom~check_pernr.
+
+*    METHODS calculatebelsno FOR DETERMINE ON SAVE
+*      IMPORTING keys FOR hurdakom~calculatebelsno.
+
+ENDCLASS.
+
+CLASS lhc_hurdakom IMPLEMENTATION.
+
+  METHOD get_instance_features.
+
+  ENDMETHOD.
+
+  METHOD precheck_update.
+  ENDMETHOD.
+
+  "METHOD fill_input_dependent_values.
+*
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*    ENTITY hurdakom
+*    ALL FIELDS
+*    WITH CORRESPONDING #( keys )
+*    RESULT DATA(lt_hurdakom).
+**
+*    DATA(ls_hurdakom) = VALUE #( lt_hurdakom[ 1 ] OPTIONAL ).
+*
+*    DATA : lo_calisan TYPE REF TO zhvl_cl_hr_calisan.
+*
+*    IF ls_hurdakom-vnamc = space.
+*
+**      SELECT * FROM zhvl_mm_vh_pernr_unifinal INTO TABLE @DATA(lt_per)
+**            WHERE onaysira = @ls_hurdakom-onaysira
+**            AND   kombslid = @ls_hurdakom-kombslid.
+**
+**      READ TABLE lt_per WITH KEY opernr = ls_hurdakom-opernr INTO DATA(ls_opern).
+*
+*
+*      SELECT SINGLE pernr INTO @DATA(ls_opernr)
+*              FROM pa0003 WHERE pernr = @ls_hurdakom-opernr.
+*
+*      IF ls_opernr IS NOT INITIAL.
+*        CREATE OBJECT lo_calisan
+*          EXPORTING
+*            pernr = ls_hurdakom-opernr.
+*
+*        DATA(lv_isim) = lo_calisan->s_personel-isim.
+*        DATA(lv_poz) = lo_calisan->s_personel-pozisyon.
+*        DATA(lv_org) = lo_calisan->s_personel-orgehtxt.
+*
+*      ENDIF.
+*
+*      MODIFY ENTITY IN LOCAL MODE zhvl_mm_i_hur_kom
+*        UPDATE FROM VALUE #( FOR hurdakom IN lt_hurdakom
+*                             ( %tky                   = hurdakom-%tky
+*                               %data-vnamc            = lv_isim
+*                               %data-stext            = lv_poz
+*                               %data-mcstext          = lv_org
+*                               %control-vnamc = if_abap_behv=>mk-on
+*                               %control-stext = if_abap_behv=>mk-on
+*                               %control-mcstext = if_abap_behv=>mk-on
+*
+*   ) )
+*        FAILED   DATA(lt_failed)
+*        REPORTED DATA(ls_reported).
+*
+*      IF ls_reported-hurdabaslik IS NOT INITIAL.
+*        reported-hurdabaslik = CORRESPONDING #( ls_reported-hurdabaslik ).
+*      ENDIF.
+*      CLEAR: lv_isim, lv_org, lv_poz.
+*    ENDIF.
+**    ENDLOOP.
+  "ENDMETHOD.
+
+*  METHOD calculatebelsno.
+*  ENDMETHOD.
+
+  METHOD komisyongetir.
+
+*
+*    DATA: iv_kombslid   TYPE zhvl_mm_kom_id,
+*          iv_belgeno    TYPE char100,
+*          iv_belgetanim TYPE char100,
+*          ev_wiid       TYPE sww_wiid.
+*
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*     ENTITY HurdaKom
+*       FIELDS ( Kombslid ) WITH CORRESPONDING #( keys )
+*     RESULT DATA(lt_hurdakom).
+**
+**    " Required only for draft instances
+**    DATA(lt_draft_keys) = keys.
+**    DELETE lt_draft_keys WHERE %is_draft = if_abap_behv=>mk-off.
+**    IF lt_draft_keys IS INITIAL.
+**      RETURN.
+**    ENDIF.
+*
+*    " Read required hurbasliks data
+*
+*    DATA(ls_hurdakom) = VALUE #( lt_hurdakom[ 1 ] OPTIONAL ).
+**Declare internal table using derived type
+*    DATA create TYPE TABLE FOR CREATE zhvl_mm_c_hur_baslik.
+*
+*    IF ls_hurdakom-Kombslid IS NOT INITIAL.
+*
+**      "buraya create i düzgün şekilde eklersek düzelecek, fonksiyondan dönen verilere göre satırlar eklenecek.
+**      MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+**      ENTITY hurdakom
+**      CREATE
+**      SET FIELDS WITH VALUE
+**      #( (  %cid = 'create1111'
+**      kombslid = ls_hurdabaslik-komid
+**      )
+**
+**    )
+**
+**    MAPPED DATA(mapped)
+**    FAILED DATA(failed)
+**    REPORTED DATA(reported2).
+**
+*
+***Populate internal table for travel instance
+**      create = VALUE #( ( %cid                 = 'create_komisyon'
+**                          %is_draft            = if_abap_behv=>mk-off
+**                          komid           = ls_hurdakom-Kombslid
+*
+**   ) ).
+*
+*
+**Create a travel instance and two associated booking instances
+**      MODIFY ENTITIES OF zhvl_mm_c_hur_baslik
+**          ENTITY hurdabaslik
+**            CREATE FIELDS ( komid ) WITH create
+**            CREATE BY \_hurdakom
+**            FIELDS ( kombslid ) WITH VALUE #( ( %cid_ref = 'create_komisyon'
+**                                                                                    %target = VALUE #( ( %cid         = 'create_komisyon_1'
+**                                                                                                         %is_draft    = if_abap_behv=>mk-off
+**                                                                                                         kombslid = ls_hurdakom-komid )
+**                                                                                                       ( %cid         = 'create_komisyon_2'
+**                                                                                                         %is_draft    = if_abap_behv=>mk-off
+**                                                                                                         kombslid = ls_hurdabaslik-komid )
+**      ) ) )
+*
+**      MODIFY ENTITIES OF zhvl_mm_c_hur_baslik
+**          ENTITY hurdakom
+**            CREATE SET FIELDS WITH VALUE #( (
+**                                                                                     %cid         = 'create_komisyon_1'
+**                                                                                                         %is_draft    = if_abap_behv=>mk-off
+**                                                                                                         kombslid = ls_hurdakom-Kombslid ) )
+**
+**
+**
+**
+**      MAPPED DATA(mapped2)
+**      REPORTED DATA(reported2)
+**      FAILED DATA(failed2).
+**
+**      IF mapped2-hurdabaslik IS NOT INITIAL.
+**        mapped-hurdabaslik = CORRESPONDING #( mapped2-hurdabaslik ).
+**      ENDIF.
+*
+*
+*
+*    "Required only for draft instances
+*    DATA(lt_draft_keys) = keys.
+*    DELETE lt_draft_keys WHERE %is_draft = if_abap_behv=>mk-off.
+*    IF lt_draft_keys IS INITIAL.
+*      RETURN.
+*    ENDIF.
+*
+*    DATA: et_komkale TYPE TABLE OF zhvl_mm_kom_s_data.
+*
+*    DATA: iv_kombslid TYPE zhvl_mm_kom_id.
+*    DATA: es_basl TYPE zhvl_mm_kom_basl.
+*
+*    "Read required hurkalem data
+*
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*     ENTITY hurdabaslik
+*       ALL FIELDS
+*       WITH CORRESPONDING #( keys )
+*       RESULT DATA(lt_hurdabas).
+*    BREAK-POINT.
+*    DATA(ls_hurdabas) = VALUE #( lt_hurdabas[ 1 ] OPTIONAL ).
+*
+*    iv_kombslid = ls_hurdabas-komid.
+*
+*    CALL FUNCTION 'ZHVL_MM_KOM_DATA'
+*      EXPORTING
+*        iv_kombslid = iv_kombslid
+*      IMPORTING
+*        es_basl     = es_basl
+*      TABLES
+*        et_komkale  = et_komkale.
+*
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*    ENTITY hurdakom
+*    ALL FIELDS
+*    WITH CORRESPONDING #( keys )
+*    RESULT DATA(lt_hurdakom).
+*
+*    DATA(ls_hurdakom) = VALUE #( et_komkale[ 1 ] OPTIONAL ).
+*
+*    " Update hurdakomisyon
+*    MODIFY ENTITY IN LOCAL MODE zhvl_mm_i_hur_kom
+*      UPDATE FROM VALUE #( FOR hurdakom IN lt_hurdakom
+*                           ( %tky                                = hurdakom-%tky
+*                             %data-kombslid              = es_basl-kombslid
+*                             %data-onaysira              = ls_hurdakom-onaysira
+*                             %data-nchmc                 = ls_hurdakom-nchmc
+*                             %data-vnamc                 = ls_hurdakom-vnamc
+*                             %data-opernr                = ls_hurdakom-pernr
+*                             %data-stext                 = ls_hurdakom-stext
+*                             %data-mcstext               = ls_hurdakom-mc_stext
+*                             %control-kombslid = if_abap_behv=>mk-on
+*                             %control-onaysira = if_abap_behv=>mk-on
+*                             %control-nchmc = if_abap_behv=>mk-on
+*                             %control-vnamc = if_abap_behv=>mk-on
+*                             %control-opernr = if_abap_behv=>mk-on
+*                             %control-stext = if_abap_behv=>mk-on
+*                             %control-mcstext = if_abap_behv=>mk-on
+*
+*
+* ) )
+*      FAILED   DATA(lt_failed)
+*      REPORTED DATA(ls_reported).
+*
+*    IF ls_reported-hurdabaslik IS NOT INITIAL.
+*      reported-hurdabaslik = CORRESPONDING #( ls_reported-hurdabaslik ).
+*    ENDIF.
+
+
+
+  ENDMETHOD.
+
+  METHOD get_instance_authorizations.
+  ENDMETHOD.
+
+  METHOD check_pernr.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdakom
+    FIELDS ( opernr )
+    WITH CORRESPONDING #( keys )
+    RESULT DATA(lt_hurdakom).
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdakom BY \_hurdabaslik
+    FROM CORRESPONDING #( lt_hurdakom )
+    LINK DATA(hurda_links).
+*
+    "DATA(ls_hurdakom) = VALUE #( lt_hurdakom[ 1 ] OPTIONAL ).
+*    SELECT * FROM zhvl_mm_vh_pernr_unifinal INTO TABLE @DATA(lt_per)
+*    WHERE onaysira = @ls_hurdakom-onaysira
+*    AND   kombslid = @ls_hurdakom-kombslid.
+
+    LOOP AT lt_hurdakom INTO DATA(ls_hurdak).
+
+      APPEND VALUE #(  %tky        = ls_hurdak-%tky
+                        %state_area = 'VALIDATE_KOM' )
+       TO reported-hurdakom.
+
+      IF ls_hurdak-opernr IS INITIAL.
+
+        "READ TABLE lt_per WITH KEY opernr = ls_hurdak-opernr INTO DATA(ls_opern).
+
+        "IF ls_opern IS INITIAL.
+        "hata mesajı
+        "APPEND VALUE #(  %tky = ls_hurdakom-%tky ) TO failed-hurdabaslik.
+        APPEND VALUE #(  %tky        = ls_hurdak-%tky
+        %is_draft   = ls_hurdak-%is_draft
+                         %state_area = 'VALIDATE_KOM'
+                         %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                           severity   = if_abap_behv_message=>severity-error
+                                           textid     = zhvl_mm_mc_hurda_hata=>komisyon_control
+  )
+                       %path = VALUE #( hurdabaslik-%tky = hurda_links[ source-%tky = ls_hurdak-%tky ]-target-%tky )
+                       %element-opernr = if_abap_behv=>mk-on
+                         )
+          TO reported-hurdakom.
+        "lv_error = abap_true.
+        "hata mesajı
+      ENDIF.
+
+*      IF ls_hurdak-opernr IS INITIAL.
+*
+*        APPEND VALUE #(  %tky        = ls_hurdak-%tky
+*                           %state_area = 'VALIDATE_KOM'
+*                           %msg        = NEW zhvl_mm_mc_hurda_hata(
+*                                             severity   = if_abap_behv_message=>severity-error
+*                                             textid     = zhvl_mm_mc_hurda_hata=>komisyon_control
+*    )
+*                         %element-opernr = if_abap_behv=>mk-on
+*                           )
+*            TO reported-hurdakom.
+*
+*      ENDIF.
+
+    ENDLOOP.
+  ENDMETHOD.
+
+ENDCLASS.
