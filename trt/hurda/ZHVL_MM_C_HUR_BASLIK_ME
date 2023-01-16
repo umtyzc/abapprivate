@@ -1,0 +1,140 @@
+@Metadata.layer: #CORE
+@UI: {  headerInfo: {  typeNamePlural: 'Hurda İşlemleri' , typeName: 'Hurda İşlemleri' },
+ presentationVariant: [{ sortOrder: [{ by: 'CreatedAt', direction:  #DESC  }], visualizations: [{type: #AS_LINEITEM}] }]}
+
+annotate view ZHVL_MM_C_HUR_BASLIK with
+{
+  @UI.facet: [
+  //text labelları data elementten alması için
+  //cds içinde as diyip değişkeni başka isimle define etmemek gerek.(<->)
+  //-----------------------------------------------
+
+             { id:              'HeaderFacet',
+               purpose:         #HEADER,
+               type:            #FIELDGROUP_REFERENCE,
+               label:           '',
+               targetQualifier: 'Fgr1', // Refers to lineItems with @UI.fieldGroup: [{qualifier: 'Fieldgroup:HeaderItems'}]
+               position:         10 },
+                {  id:        'HurdaBaslik',
+                   purpose:         #STANDARD,
+                   type:            #IDENTIFICATION_REFERENCE,
+                   label:           'Genel Bilgiler',
+                   position:        20 },
+                { id:              'HurdaKalem',
+                   purpose:         #STANDARD,
+                   type:            #LINEITEM_REFERENCE,
+                   label:           'Kalem Bilgileri',
+                   position:        30,
+                   targetElement:   '_Hurdakalem'},
+                { id:              'HurdaKom',
+                   purpose:         #STANDARD,
+                   type:            #LINEITEM_REFERENCE,
+                   label:           'Komisyon Bilgileri',
+                   position:        40,
+                   targetElement:   '_HurdaKom'}
+  ]
+  @UI.hidden: true
+
+  Hurdauuid;
+  @UI: {  lineItem:       [ { position: 10 }, { label: 'Belge No' }, {
+    label: 'Hurda Çıkışı Yap',
+    dataAction: 'HurdaCikisi',
+    type: #FOR_ACTION,
+    position: 10
+  },
+  {
+    label: 'Onaya Gönder',
+    dataAction: 'SendForApproval',
+    type: #FOR_ACTION,
+    position: 20},
+    {
+      label: 'Yarat',
+      dataAction: 'Copy',
+      type: #FOR_ACTION,
+      position: 30
+
+   }
+  ],
+            identification: [ { position: 10  }],
+            selectionField: [ { position: 10 } ]}
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'BelNo', name: 'ZHVL_MM_C_HUR_BASLIK' } }],
+    filter: { multipleSelections: true, selectionType: #SINGLE  }
+    }
+  BelNo;
+  @UI: {  lineItem:       [ { position: 10 }, { label: 'Malzeme Belgesi' },
+  {type: #FOR_INTENT_BASED_NAVIGATION, semanticObjectAction: 'displayList'}
+   ],
+            identification: [ { position: 10  } ]}
+  @Consumption.semanticObject: 'MaterialMovement'
+  @Consumption.semanticObjectMapping.element: 'MaterialDocument'
+  @EndUserText.quickInfo: 'Hurdaya Çıkış Belgesi'
+ Mblnr;
+  @UI: {  lineItem:       [ { position: 20 }, { label: 'Belge Statü' },
+  { type: #FOR_ACTION, dataAction: 'customdel', label: 'Sil' }  ],
+          identification: [ { position: 20  },  { type: #FOR_ACTION, dataAction: 'customdel', label: 'Sil' } ],
+          selectionField: [ { position: 20 } ]}
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'BelStatu', name: 'ZHVL_MM_VH_STAT' } }],
+    filter: { multipleSelections: true, selectionType: #SINGLE  }
+    }
+  BelStatu;
+  @UI: {  lineItem:       [ { position: 30 }, { label: 'Komisyon Numarası' } ],
+          identification: [ { position: 30  } ]
+          }
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Kombslid', name: 'ZHVL_MM_VH_KOMID' } }],
+    filter: { multipleSelections: true, selectionType: #SINGLE  }
+    }
+  @EndUserText.label: 'Komisyon Numarası'
+
+  KomId;
+  @UI: {  lineItem:       [ { position: 40 }, { label: 'Üretim Yeri' } ],
+          identification: [ { position: 40  } ],
+          selectionField: [ { position: 30 } ]}
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Werks', name: 'ZHVL_VH_WERKS' } }],
+    filter: { multipleSelections: true, selectionType: #SINGLE  }
+    }
+  Werks;
+  @UI: {  lineItem:       [ { position: 50 }, { label: 'Depo Yeri' } ],
+          identification: [ { position: 50  }],
+          selectionField: [ { position: 40 } ]}
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Lgort', name: 'ZHVL_VH_LGORT' } }],
+    valueHelpDefinition: [{additionalBinding: [{element: 'Werks', localElement: 'Werks' }]}],
+    filter: { multipleSelections: true, selectionType: #SINGLE  }
+    }
+  Lgort;
+  @UI: {  lineItem:       [ { position: 60 },{ label: 'Masraf Yeri' } ],
+          identification: [ { position: 60  } ]
+          }
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Kostl', name: 'ZHVL_MM_VH_KOSTL' } }],
+    filter: { multipleSelections: true, selectionType: #SINGLE  }
+    }
+  Kostl;
+  @UI: {  lineItem:       [ { position: 90 }, { label: 'Hurda Listesi Açıklaması' } ],
+          identification: [ { position: 90  }]}
+  BelTxt;
+  @UI: {  lineItem:       [ { position: 80 }, { label: 'Belge Tarihi' } ],
+        identification: [ { position: 80  }]}
+  Bldat;
+  @UI: {  lineItem:       [ { position: 70 }, { label: 'Kayıt Tarihi' } ],
+        identification: [ { position: 70  }]}
+  Budat;
+
+  @UI: {  lineItem:       [ { position: 100, label: 'Yaratan' } ],
+        identification: [ { position: 100 } ]
+  //          fieldGroup:     [ { qualifier: 'Fieldgroup:HeaderItems', label: 'Oluşturan', position: 1 } ]
+        }
+  CreatedBy;
+  @UI: {  lineItem:       [ { position: 100, label: 'Yaratma Tarihi' } ],
+          identification: [ { position: 100 } ]
+  //          fieldGroup:     [ { qualifier: 'Fieldgroup:HeaderItems', label: 'Organizasyon Birimi' , position: 2 } ]
+          }
+  CreatedAt;
+  @UI.hidden: true
+  LastChangedBy;
+  @UI.hidden: true
+  LastChangedAt;
+  @UI.hidden: true
+  LocalLastChangedAt;
+  @UI: {  lineItem:       [ { position: 110 }, { label: 'Komisyon İş Akış Numarası' } ]}
+  Wi_id;
+
+}
