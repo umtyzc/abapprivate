@@ -1,0 +1,40 @@
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Hurda Komisyon Basic CDS'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType:{
+    serviceQuality: #X,
+    sizeCategory: #S,
+    dataClass: #MIXED
+}
+define view entity ZHVL_MM_I_HUR_KOM
+  as select from zhvl_mm_hur_kom
+
+  association        to parent ZHVL_MM_I_HUR_BASLIK as _Hurdabaslik on $projection.Hurdauuid = _Hurdabaslik.Hurdauuid
+  association [1..1] to ZI_MM_KOM_GOREV_TIPI        as _gorevtipi   on $projection.Gorevtipi = _gorevtipi.gotipi
+  association [0..1] to ZI_MM_KOM_PA02              as _P02         on $projection.Opernr = _P02.Pernr
+{
+
+  key zhvl_mm_hur_kom.hurdauuid          as Hurdauuid,
+  key zhvl_mm_hur_kom.hurdakomuuid       as Hurdakomuuid,
+      zhvl_mm_hur_kom.kombslid           as Kombslid,
+      @ObjectModel.text.element: ['_gorevtipi.tanim']
+      zhvl_mm_hur_kom.gorevtipi          as Gorevtipi,
+      _gorevtipi.tanim                   as Gtanim,
+      zhvl_mm_hur_kom.sayac              as Sayac,
+      zhvl_mm_hur_kom.vnamc              as Vnamc,
+      zhvl_mm_hur_kom.nchmc              as Nchmc,
+      zhvl_mm_hur_kom.stext              as Stext,
+      zhvl_mm_hur_kom.mc_stext           as Mcstext,
+      zhvl_mm_hur_kom.onaysira           as Onaysira,
+      zhvl_mm_hur_kom.wi_id              as WiId,
+      zhvl_mm_hur_kom.opernr             as Opernr,
+      zhvl_mm_hur_kom.created_by         as CreatedBy,
+      zhvl_mm_hur_kom.created_at         as CreatedAt,
+      zhvl_mm_hur_kom.lastchangedby      as Lastchangedby,
+      zhvl_mm_hur_kom.lastchangedat      as Lastchangedat,
+      zhvl_mm_hur_kom.locallastchangedat as Locallastchangedat,
+      _Hurdabaslik,
+      _gorevtipi,
+      _P02
+}
