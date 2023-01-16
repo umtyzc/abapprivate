@@ -1,0 +1,53 @@
+projection;
+use draft;
+
+define behavior for ZHVL_MM_C_HUR_BASLIK alias Hurdabaslik
+use etag
+{
+ // use create;
+  use update;
+  //use delete;
+  use association _Hurdakalem { create; with draft; }
+  use association _HurdaKom { with draft; }
+  use action SendForApproval;
+  use action HurdaCikisi;
+  use action customdel;
+  use action Copy;
+  use action Komisyon;
+
+}
+
+define behavior for ZHVL_MM_C_HUR_KALEM alias Hurdakalem
+use etag
+{
+
+  use update;
+  use delete;
+
+  use association _Hurdabaslik { with draft; }
+  use association _Hurdasern { create; with draft; }
+
+}
+
+define behavior for ZHVL_MM_C_HUR_KOM alias Hurdakom
+use etag
+{
+
+  use update;
+  //use delete;
+  //use action KomisyonGetir;
+
+  use association _Hurdabaslik { with draft; }
+
+}
+
+define behavior for ZHVL_MM_C_HUR_SERN alias Hurdasern
+use etag
+
+{
+  use update;
+  use delete;
+
+  use association _Hurdakalem { with draft; }
+  use association _Hurdabaslik { with draft; }
+}
