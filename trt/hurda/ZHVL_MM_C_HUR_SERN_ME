@@ -1,0 +1,63 @@
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: { typeName: 'Seri Numaraları',
+                typeNamePlural: 'Seri Numaraları',
+                title: { type: #STANDARD, value: 'Sernr' } } }
+annotate view ZHVL_MM_C_HUR_SERN with
+
+{
+  @UI.facet: [ { id:            'Hurdasern',
+                 purpose:       #STANDARD,
+                 type:          #IDENTIFICATION_REFERENCE,
+                 label:         'Seri Numaraları',
+                 position:      10 }  ]
+
+  @UI.hidden: true
+  Hurdasernruuid;
+  @UI.hidden: true
+  Hurdauuid;
+  @UI: {
+     lineItem:       [ { position: 10 , label: 'Belge No'} ],
+     identification: [ { position: 10 } ]
+     }
+  BelNo;
+  @UI: { lineItem:[ { position: 20 , label: 'Satır Numarası'} ],
+        identification: [ { position: 20 } ] }
+  BelSno;
+
+  @UI: { lineItem:[ { position: 40 , label: 'Üretim Yeri'} ],
+      identification: [ { position: 40 } ] }
+  Werks;
+  @UI: { lineItem:[ { position: 50 , label: 'Depo yeri'} ],
+      identification: [ { position: 50 } ] }
+  Lgort;
+  @UI: { lineItem:[ { position: 60 , label: 'Malzeme No'} ],
+      identification: [ { position: 60 } ] }
+  Matnr;
+  @UI: { lineItem:[ { position: 70 , label: 'Parti Numarası'} ],
+      identification: [ { position: 70 } ] }
+  Charg;
+//  @UI: { lineItem:[ { position: 80 , label: 'Ekipman Numarası'} ],
+//      identification: [ { position: 80 } ] }
+//  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'equnr', name: 'ZHVL_MM_VH_EQNR' } }],
+//     valueHelpDefinition:
+//     [{additionalBinding: [{element: 'Werks', localElement: 'Werks' },
+//                           {element: 'Lgort', localElement: 'Lgort' },
+//                           {element: 'Matnr', localElement: 'Matnr' },
+//                           {element: 'Charg', localElement: 'Charg' }]}],
+//  filter: { multipleSelections: true, selectionType: #SINGLE  } }
+  @UI.hidden: true
+  Equnr;
+  @UI: { lineItem:[ { position: 80 , label: 'Seri Numarası'} ],
+      identification: [ { position: 80 } ] }
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'sernr', name: 'ZHVL_MM_VH_EQNR' } }],
+      valueHelpDefinition: 
+      [{additionalBinding: [{element: 'Werks', localElement: 'Werks' },
+                           {element: 'Lgort', localElement: 'Lgort' },
+                           {element: 'Matnr', localElement: 'Matnr' },
+                           {element: 'Charg', localElement: 'Charg' }]}],
+  filter: { multipleSelections: true, selectionType: #SINGLE  } }
+
+  Sernr;
+
+}
