@@ -1,0 +1,92 @@
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: { typeName: 'Kalem Bilgileri',
+                typeNamePlural: 'Kalem Bilgileri',
+                title: { type: #STANDARD, value: 'Belsno' }
+              }
+//                presentationVariant: [{ sortOrder: [{ by: 'Belsno', direction:  #ASC  }], visualizations: [{type: #AS_LINEITEM}] }]
+      }
+annotate view ZHVL_MM_C_HUR_KALEM with
+{
+  @UI.facet: [ { id:            'Hurdakalem',
+                 purpose:       #STANDARD,
+                 type:          #IDENTIFICATION_REFERENCE,
+                 label:         'Kalem Bilgileri',
+                 position:      10 },
+                 { id:              'HurdaSern'  ,
+                   purpose:         #STANDARD,
+                   type:            #LINEITEM_REFERENCE,
+                   label:           'Seri Numaraları',
+                   position:        20,
+                   targetElement:   '_Hurdasern'}
+
+  ]
+
+  @UI.hidden: true
+  Hurdakalemuuid;
+  @UI.hidden: true
+  Hurdauuid;
+  @UI: {
+       lineItem:       [ { position: 10 , label: 'Belge No'}
+  //       , {
+  //      label: 'Onaya Gönder',
+  //      dataAction: 'SendForApproval',
+  //      type: #FOR_ACTION,
+  //      position: 10
+  //    }
+  ],
+       identification: [ { position: 10 } ]
+  //       fieldGroup:     [ { qualifier: 'Fg1' , position: 10 }]
+       } //    @UI: {  lineItem:       [ { position: 10 }, { label: 'Belge No' }, {
+  //    label: 'Onaya Gönder',
+  //    dataAction: 'SendForApproval',
+  //    type: #FOR_ACTION,
+  //    position: 10
+  //  }],
+  BelNo;
+  @UI: { lineItem:[ { position: 20 , label: 'Satır Numarası'} ],
+         identification: [ { position: 20 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  BelSno;
+  @UI: { lineItem:[ { position: 30 , label: 'Üretim Yeri'} ],
+       identification: [ { position: 20 } ]}
+  Werks;
+  @UI: { lineItem:[ { position: 30 , label: 'Depo Yeri'} ],
+     identification: [ { position: 30 } ]}
+  Lgort;
+  @UI: { lineItem:[ { position: 30 , label: 'Malzeme Numarası'} ],
+       identification: [ { position: 30 } ]
+  //       fieldGroup:     [ { qualifier: 'Fg1' , position: 30 }]
+  }
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Matnr', name: 'ZHVL_VH_MARD_MALZEME' } }],
+    valueHelpDefinition: [{additionalBinding: [{element: 'Werks', localElement: 'Werks' },
+                                                {element: 'Lgort', localElement: 'Lgort' }]}],
+    filter: { multipleSelections: true, selectionType: #SINGLE  }
+    }
+  Matnr;
+  @UI: { lineItem:[ { position: 40 , label: 'Parti Numarası'} ],
+       identification: [ { position: 40 } ] }
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Charg', name: 'ZHVL_VH_MCHB_MALZEME' } }],
+      valueHelpDefinition: [{additionalBinding: [{element: 'Werks', localElement: 'Werks' },
+                           {element: 'Lgort', localElement: 'Lgort' },
+                           {element: 'Matnr', localElement: 'Matnr' }]}],
+  filter: { multipleSelections: true, selectionType: #SINGLE  } }
+  Charg;
+  @UI: { lineItem:[ { position: 50 , label: 'Miktar'} ],
+       identification: [ { position: 50 } ] }
+  Menge;
+  @UI: { lineItem:[ { position: 60 , label: 'Ölçü Birimi'} ],
+     identification: [ { position: 60 } ] }
+  Meins;
+  @UI: { lineItem:[ { position: 70 , label: 'Hareket Nedeni'} ],
+     identification: [ { position: 70 } ] }
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Grund', name: 'ZHVL_MM_VH_HRKT_NEDENI' } }],
+  filter: { multipleSelections: true, selectionType: #SINGLE  } }
+  Grund;
+  @UI: { lineItem:[ { position: 80 , label: 'Hurda Listesi Satır Açıklaması'} ],
+     identification: [ { position: 80 } ] }
+  BelStx;
+
+
+}
