@@ -1,0 +1,383 @@
+CLASS lhc_hurdakalem DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS calculatebelsno FOR DETERMINE ON SAVE
+      IMPORTING keys FOR hurdakalem~calculatebelsno.
+    METHODS get_instance_features FOR INSTANCE FEATURES
+      IMPORTING keys REQUEST requested_features FOR hurdakalem RESULT result.
+    METHODS fill_input_dependent_values FOR DETERMINE ON MODIFY
+      IMPORTING keys FOR hurdakalem~fill_input_dependent_values.
+    METHODS material_validate FOR VALIDATE ON SAVE
+      IMPORTING keys FOR hurdakalem~material_validate.
+    METHODS fill_default_entry_unit FOR DETERMINE ON MODIFY
+      IMPORTING keys FOR hurdakalem~fill_default_entry_unit.
+    METHODS precheck_update FOR PRECHECK
+      IMPORTING entities FOR UPDATE hurdakalem.
+    METHODS mandatory_validate FOR VALIDATE ON SAVE
+      IMPORTING keys FOR hurdakalem~mandatory_validate.
+
+
+ENDCLASS.
+
+CLASS lhc_hurdakalem IMPLEMENTATION.
+
+  METHOD calculatebelsno.
+
+    DATA max_belsno TYPE zhvl_mm_hur_bel_sno.
+    DATA update TYPE TABLE FOR UPDATE zhvl_mm_i_hur_baslik\\hurdakalem.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdakalem BY \_hurdabaslik
+      FIELDS ( hurdauuid belno lgort werks )
+      WITH CORRESPONDING #( keys )
+      RESULT DATA(hurdabaslik).
+
+    LOOP AT hurdabaslik INTO DATA(hurdabas).
+      READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+        ENTITY hurdabaslik BY \_hurdakalem
+          FIELDS ( belsno )
+        WITH VALUE #( ( %tky = hurdabas-%tky ) )
+        RESULT DATA(hurdakalem).
+
+      max_belsno ='0000000000'.
+      LOOP AT hurdakalem INTO DATA(hurdakal).
+        IF hurdakal-belsno > max_belsno.
+          max_belsno = hurdakal-belsno.
+        ENDIF.
+      ENDLOOP.
+
+      LOOP AT hurdakalem INTO hurdakal WHERE belsno IS INITIAL.
+        READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+        ENTITY hurdabaslik
+          FIELDS ( belno lgort werks )
+          WITH CORRESPONDING #( keys )
+          RESULT DATA(hurdabel).
+
+        READ TABLE hurdabel INTO DATA(ls_hurdabel)
+        WITH KEY %key-hurdauuid = hurdakal-%key-hurdauuid.
+        max_belsno += 10.
+        UNPACK max_belsno TO max_belsno.
+        APPEND VALUE #( %tky      = hurdakal-%tky
+                        belsno = max_belsno
+                        belno = ls_hurdabel-belno
+                        werks = ls_hurdabel-werks
+                        lgort = ls_hurdabel-lgort
+                      ) TO update.
+      ENDLOOP.
+    ENDLOOP.
+*    "belge numarasının kalemlere eklenmesi
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*        ENTITY hurdabaslik
+*          FIELDS ( belno )
+*          WITH CORRESPONDING #( keys )
+*          RESULT DATA(hurdabel).
+*
+*    LOOP AT hurdabel INTO DATA(hurdabels) WHERE belno IS NOT INITIAL.
+*      READ TABLE update INTO DATA(ls_update) WITH KEY hurdauuid = hurdabels-hurdauuid.
+*      IF sy-subrc = 0.
+*        ls--update-belno = hurdabels-belno.
+*        ENDIF.
+*      ENDLOOP.
+
+    MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdakalem
+    UPDATE FIELDS ( belno belsno lgort werks ) WITH update
+    REPORTED DATA(update_reported).
+
+    reported = CORRESPONDING #( DEEP update_reported ).
+
+  ENDMETHOD.
+
+  METHOD get_instance_features.
+*    DATA:
+*      ls_error_msg TYPE bapiret2.
+*    " Read reservations data
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*      ENTITY hurdakalem
+*        FIELDS ( matnr meins )
+*      WITH CORRESPONDING #( keys )
+*    RESULT DATA(lt_res_items).
+*
+*    IF lt_res_items IS NOT INITIAL.
+*
+*      " Fill items default values
+*      LOOP AT lt_res_items ASSIGNING FIELD-SYMBOL(<ls_item>).
+*
+*        SELECT SINGLE matnr, meins FROM mara INTO @DATA(ls_mara)
+*        WHERE matnr = @<ls_item>-matnr.
+*
+*        <ls_item>-meins = ls_mara-meins.
+*
+*      ENDLOOP.
+*    ENDIF.
+*    " Update reservation items
+*    MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*      ENTITY hurdakalem
+*        UPDATE FIELDS ( meins )
+*      WITH VALUE #( FOR ls_res_item IN lt_res_items ( %tky = ls_res_item-%tky %data = CORRESPONDING #( ls_res_item MAPPING %key = %key ) ) )
+*    REPORTED DATA(ls_reported).
+*
+**    reported-zreservationdocheade = CORRESPONDING #( ls_reported-hurdabaslik ).
+*    reported-hurdakalem   = CORRESPONDING #( ls_reported-hurdakalem ).
+  ENDMETHOD.
+
+  METHOD fill_input_dependent_values.
+
+    " Required only for draft instances
+    DATA(lt_draft_keys) = keys.
+    DELETE lt_draft_keys WHERE %is_draft = if_abap_behv=>mk-off.
+    IF lt_draft_keys IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    " Read required hurkalem data
+    READ ENTITY IN LOCAL MODE zhvl_mm_i_hur_kalem
+      FIELDS ( hurdauuid hurdakalemuuid belno werks lgort matnr )
+      WITH VALUE #( FOR <root_key> IN lt_draft_keys ( %tky = <root_key>-%tky ) )
+    RESULT DATA(lt_hurkalem).
+
+    LOOP AT lt_hurkalem ASSIGNING FIELD-SYMBOL(<ls_hurkalem>).
+
+      SELECT SINGLE meins FROM mara INTO @DATA(lv_meins) WHERE matnr = @<ls_hurkalem>-matnr.
+
+      <ls_hurkalem>-meins = lv_meins.
+
+      IF <ls_hurkalem>-werks IS INITIAL.
+        READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+               ENTITY hurdabaslik
+                 FIELDS ( belno lgort werks )
+                 WITH CORRESPONDING #( keys )
+                 RESULT DATA(hurdabel).
+
+        READ TABLE hurdabel INTO DATA(ls_hurdabel)
+                WITH KEY %key-hurdauuid = <ls_hurkalem>-%key-hurdauuid.
+
+        <ls_hurkalem>-werks = ls_hurdabel-werks.
+        <ls_hurkalem>-lgort = ls_hurdabel-lgort.
+
+      ENDIF.
+    ENDLOOP.
+
+    " Update hurdakalem
+    MODIFY ENTITY IN LOCAL MODE zhvl_mm_i_hur_kalem
+      UPDATE FROM VALUE #( FOR hurkalem IN lt_hurkalem
+                           ( %tky                                = hurkalem-%tky
+                             %data-werks              = hurkalem-werks
+                             %data-lgort              = hurkalem-lgort
+                             %data-meins              = hurkalem-meins
+                             %control-werks = if_abap_behv=>mk-on
+                             %control-lgort = if_abap_behv=>mk-on
+                             %control-meins = if_abap_behv=>mk-on
+ ) )
+      FAILED   DATA(lt_failed)
+      REPORTED DATA(ls_reported).
+
+    IF ls_reported-hurdabaslik IS NOT INITIAL.
+      reported-hurdabaslik = CORRESPONDING #( ls_reported-hurdabaslik ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD material_validate.
+
+    DATA: lv_error  TYPE boole_d.
+    "menge miktar girişi zorunlu olsun kontrol-hata
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+       ENTITY hurdakalem
+         FIELDS ( charg matnr menge )
+          WITH VALUE #( FOR <root_key> IN keys ( %tky = <root_key>-%tky ) )
+         RESULT DATA(lt_hurdakalem).
+
+    LOOP AT lt_hurdakalem INTO DATA(hurdabas).
+
+      SELECT SINGLE sernp FROM marc INTO @DATA(iv_sernp)
+      WHERE werks = @hurdabas-werks
+      AND matnr = @hurdabas-matnr.
+
+      IF iv_sernp IS NOT INITIAL.
+        READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+       ENTITY hurdakalem BY \_hurdasern
+         ALL FIELDS
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_hurdasern).
+
+        IF lt_hurdasern IS INITIAL.
+          "hata mesajı
+          APPEND VALUE #(  %tky        = hurdabas-%tky
+                            %state_area = 'VALIDATE_SERN' )
+           TO reported-hurdabaslik.
+
+*          APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+          APPEND VALUE #(  %tky        = hurdabas-%tky
+                           %state_area = 'VALIDATE_SERN'
+                           %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                             severity   = if_abap_behv_message=>severity-error
+                                             textid     = zhvl_mm_mc_hurda_hata=>material_control
+                                             werks = hurdabas-werks
+                                             matnr = hurdabas-matnr
+    )
+*                       %element-belno = if_abap_behv=>mk-on
+                           )
+            TO reported-hurdabaslik.
+          lv_error = abap_true.
+        ENDIF.
+      ENDIF.
+
+      "Charg alanı lotlu malzeme kontrolü
+      SELECT SINGLE xchpf FROM mara INTO @DATA(iv_xcharg)
+            WHERE  matnr = @hurdabas-matnr.
+
+      IF iv_xcharg = 'X' AND hurdabas-charg IS INITIAL.
+
+        "hata mesajı
+        APPEND VALUE #(  %tky        = hurdabas-%tky
+                          %state_area = 'VALIDATE_LOT' )
+         TO reported-hurdabaslik.
+
+*        APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+        APPEND VALUE #(  %tky        = hurdabas-%tky
+                         %state_area = 'VALIDATE_LOT'
+                         %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                           severity   = if_abap_behv_message=>severity-error
+                                           textid     = zhvl_mm_mc_hurda_hata=>material_charg_control
+                                           werks = hurdabas-werks
+                                           matnr = hurdabas-matnr
+  )
+*                     %element- = if_abap_behv=>mk-on
+                         )
+          TO reported-hurdabaslik.
+        lv_error = abap_true.
+        "eğer malzeme lotlu değil ise parti alanı veri girişine kapatılsın.
+
+      ELSEIF iv_xcharg NE 'X' AND hurdabas-charg IS NOT INITIAL.
+
+        "hata mesajı
+        APPEND VALUE #(  %tky        = hurdabas-%tky
+                          %state_area = 'VALIDATE_LOT' )
+         TO reported-hurdabaslik.
+
+        APPEND VALUE #(  %tky        = hurdabas-%tky
+                         %state_area = 'VALIDATE_LOT'
+                         %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                           severity   = if_abap_behv_message=>severity-error
+                                           textid     = zhvl_mm_mc_hurda_hata=>lot_control
+                                           werks = hurdabas-werks
+                                           matnr = hurdabas-matnr
+  )
+*                     %element- = if_abap_behv=>mk-on
+
+                         )
+          TO reported-hurdabaslik.
+        lv_error = abap_true.
+      ENDIF.
+
+    ENDLOOP.
+*    IF lv_error = abap_true.
+*      APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+*    ENDIF.
+  ENDMETHOD.
+
+  METHOD fill_default_entry_unit.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+     ENTITY hurdakalem
+       ALL FIELDS
+       WITH CORRESPONDING #( keys )
+       RESULT DATA(lt_hurdakalem).
+
+    LOOP AT lt_hurdakalem INTO DATA(hurdakalem).
+
+      SELECT SINGLE meins FROM mara INTO @DATA(lv_meins) WHERE matnr = @hurdakalem-matnr.
+
+    ENDLOOP.
+
+    MODIFY ENTITY IN LOCAL MODE zhvl_mm_i_hur_kalem
+     UPDATE FROM VALUE #( FOR hurkalem IN lt_hurdakalem
+                          ( %tky                                = hurkalem-%tky
+                            %data-meins              = lv_meins
+                            %control-meins = if_abap_behv=>mk-on
+) )
+     FAILED   DATA(lt_failed)
+     REPORTED DATA(ls_reported).
+
+    IF ls_reported-hurdabaslik IS NOT INITIAL.
+      reported-hurdabaslik = CORRESPONDING #( ls_reported-hurdabaslik ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD precheck_update.
+  ENDMETHOD.
+
+  METHOD mandatory_validate.
+*
+*    DATA: lv_error2  TYPE boole_d.
+*
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+     ENTITY hurdakalem
+       FIELDS ( matnr menge )
+       WITH CORRESPONDING #( keys )
+       RESULT DATA(lt_hurdakalem).
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdakalem BY \_hurdabaslik
+    FROM CORRESPONDING #( lt_hurdakalem )
+    LINK DATA(hurda_links).
+*
+      LOOP AT lt_hurdakalem ASSIGNING FIELD-SYMBOL(<ls_data>).
+*
+        APPEND VALUE #( %tky        = <ls_data>-%tky
+                             %state_area = 'VALIDATE_MANDATORY'  ) TO reported-hurdakalem.
+*                             %path-hurdabaslik-%is_draft   = <ls_data>-%is_draft
+*                             %path-hurdabaslik-hurdauuid = <ls_data>-hurdauuid ) TO reported-hurdakalem.
+*      lv_error2 = abap_false.
+*
+        IF <ls_data>-matnr IS INITIAL.
+
+          "APPEND VALUE #(  %tky = <ls_data>-%tky ) TO failed-hurdakalem.
+          APPEND VALUE #(  %tky        = <ls_data>-%tky
+          %is_draft   = <ls_data>-%is_draft
+                           %state_area = 'VALIDATE_MANDATORY'
+                           %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                            severity   = if_abap_behv_message=>severity-error
+                                             textid     = zhvl_mm_mc_hurda_hata=>mandatory_control
+*  "                                         werks = hurdabas-werks
+                                            matnr = <ls_data>-matnr
+    )
+                          %path               = VALUE #( hurdabaslik-%tky = hurda_links[ source-%tky = <ls_data>-%tky ]-target-%tky )
+                          %element-matnr = if_abap_behv=>mk-on
+                           ) TO reported-hurdakalem.
+
+        ENDIF.
+*
+        IF <ls_data>-matnr IS NOT INITIAL.
+
+          IF <ls_data>-menge IS INITIAL.
+*          "APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdakalem.
+            APPEND VALUE #(  %tky        = <ls_data>-%tky
+            %is_draft   = <ls_data>-%is_draft
+                             %state_area = 'VALIDATE_MANDATORY'
+                             %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                              severity   = if_abap_behv_message=>severity-error
+                                               textid     = zhvl_mm_mc_hurda_hata=>menge_control
+*  "                                       werks = hurdabas-werks
+
+      )
+                            %path               = VALUE #( hurdabaslik-%tky = hurda_links[ source-%tky = <ls_data>-%tky ]-target-%tky )
+                            %element-menge = if_abap_behv=>mk-on
+                             ) TO reported-hurdakalem.
+
+          ENDIF.
+
+        ENDIF.
+*
+*      IF lv_error2 = abap_true.
+*        APPEND VALUE #(  %tky = <ls_data>-%tky ) TO failed-hurdakalem.
+*      ENDIF.
+*
+      ENDLOOP.
+
+  ENDMETHOD.
+
+ENDCLASS.
