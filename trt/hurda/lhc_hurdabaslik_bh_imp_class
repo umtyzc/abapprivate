@@ -1,0 +1,1578 @@
+CLASS lhc_hurdabaslik DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    TYPES: BEGIN OF ts_hurda_map,
+             source       TYPE sysuuid_x16, "hurdauuid
+             target_final TYPE sysuuid_x16, "hurdauuid
+             target_cid   TYPE abp_behv_cid,
+           END OF ts_hurda_map.
+    TYPES: it_headers_to_create TYPE TABLE FOR CREATE zhvl_mm_i_hur_baslik,
+           it_hurda_map         TYPE STANDARD TABLE OF ts_hurda_map,
+           it_items_to_create   TYPE TABLE FOR CREATE zhvl_mm_i_hur_baslik\\hurdabaslik\_hurdakom,
+           failed               TYPE RESPONSE FOR FAILED EARLY zhvl_mm_i_hur_baslik,
+           reported             TYPE RESPONSE FOR REPORTED EARLY zhvl_mm_i_hur_baslik,
+           result               TYPE TABLE FOR ACTION RESULT zhvl_mm_i_hur_baslik\\hurdabaslik~copy.
+
+    METHODS get_instance_authorizations FOR INSTANCE AUTHORIZATION
+      IMPORTING keys REQUEST requested_authorizations FOR hurdabaslik RESULT result.
+    METHODS get_features FOR FEATURES
+      IMPORTING keys REQUEST requested_features FOR hurdabaslik RESULT result.
+    METHODS precheck_cba_hurdakalem FOR PRECHECK
+      IMPORTING entities FOR CREATE hurdabaslik\_hurdakalem.
+
+    METHODS calculatebelno FOR DETERMINE ON SAVE
+      IMPORTING keys FOR hurdabaslik~calculatebelno.
+    METHODS sendforapproval FOR MODIFY
+      IMPORTING keys FOR ACTION hurdabaslik~sendforapproval RESULT result.
+    METHODS hurdacikisi FOR MODIFY
+      IMPORTING keys FOR ACTION hurdabaslik~hurdacikisi RESULT result.
+    METHODS fill_default_values FOR DETERMINE ON MODIFY
+      IMPORTING keys FOR hurdabaslik~fill_default_values.
+    METHODS customdel FOR MODIFY
+      IMPORTING keys FOR ACTION hurdabaslik~customdel RESULT result.
+    METHODS copy FOR MODIFY
+      IMPORTING keys FOR ACTION hurdabaslik~copy RESULT result.
+    METHODS komisyon FOR MODIFY
+      IMPORTING keys FOR ACTION hurdabaslik~komisyon RESULT result.
+    METHODS mandatory_data FOR VALIDATE ON SAVE
+      IMPORTING keys FOR hurdabaslik~mandatory_data.
+*    METHODS charg_control FOR VALIDATE ON SAVE
+*      IMPORTING keys FOR hurdabaslik~charg_control.
+*    METHODS header_data FOR VALIDATE ON SAVE
+*      IMPORTING keys FOR hurdabaslik~header_data.
+    METHODS create_komisyon_draft
+      IMPORTING it_hurda_map         TYPE it_hurda_map
+                it_headers_to_create TYPE it_headers_to_create
+                it_items_to_create   TYPE it_items_to_create
+      CHANGING  result               TYPE result
+                failed               TYPE failed
+                reported             TYPE reported.
+
+ENDCLASS.
+
+CLASS lhc_hurdabaslik IMPLEMENTATION.
+
+  METHOD get_instance_authorizations.
+  ENDMETHOD.
+
+  METHOD get_features.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+         ENTITY hurdabaslik
+           FIELDS ( belstatu ) WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_hurdabaslik)
+         FAILED failed.
+*
+    result =
+      VALUE #(
+        FOR hurdabaslik2 IN lt_hurdabaslik
+
+          LET is_delete =   COND #( WHEN hurdabaslik2-belstatu = '02' OR hurdabaslik2-belstatu = '03'
+          OR hurdabaslik2-belstatu = '04'
+          OR hurdabaslik2-belstatu = '05'
+                                      THEN if_abap_behv=>fc-o-disabled
+                                      ELSE if_abap_behv=>fc-o-enabled
+                                      )
+                IN
+                  ( %tky = hurdabaslik2-%tky
+                    %update = is_delete
+                    %action-customdel = is_delete
+                    " = if_abap_behv=>fc-f-mandatory
+                    %action-edit = is_delete
+                    "%assoc-_hurdakalem = is_delete
+
+
+                                      )
+                                      ).
+
+  ENDMETHOD.
+
+  METHOD precheck_cba_hurdakalem.
+  ENDMETHOD.
+
+  METHOD calculatebelno.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+       ENTITY hurdabaslik
+         FIELDS ( belno belstatu ) WITH CORRESPONDING #( keys )
+       RESULT DATA(lt_hurdabaslik).
+
+    DELETE lt_hurdabaslik WHERE belno IS NOT INITIAL.
+
+    CHECK lt_hurdabaslik IS NOT INITIAL.
+    DATA(ls_hurdabaslik) = VALUE #( lt_hurdabaslik[ 1 ] OPTIONAL ).
+
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*       ENTITY hurdakalem
+*         ALL FIELDS
+*         WITH CORRESPONDING #( keys )
+*         RESULT DATA(lt_hurdakalem)
+*         FAILED DATA(failed).
+*
+*    DATA(ls_hurdabaskalem) = VALUE #( lt_hurdakalem[ 1 ] OPTIONAL ).
+*
+*    IF ls_hurdabaskalem IS INITIAL.
+*      "hata mesajı
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                        %state_area = 'VALIDATE_MATERIAL' )
+*       TO reported-hurdabaslik.
+*
+*      APPEND VALUE #(  %tky = ls_hurdabaskalem-%tky ) TO failed-hurdabaslik.
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                       %state_area = 'VALIDATE_MATERIAL'
+*                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+*                                         severity   = if_abap_behv_message=>severity-error
+*                                         textid     = zhvl_mm_mc_hurda_hata=>kalem_control
+*
+*)
+*                   %element-belno = if_abap_behv=>mk-on
+*                       )
+*        TO reported-hurdabaslik.
+*      EXIT.
+*    ENDIF.
+
+
+    DATA:lv_number TYPE i.
+
+    CALL FUNCTION 'NUMBER_GET_NEXT'
+      EXPORTING
+        nr_range_nr             = '01'
+        object                  = 'ZHVL_HURDA'
+      IMPORTING
+        number                  = lv_number
+      EXCEPTIONS
+        interval_not_found      = 1
+        number_range_not_intern = 2
+        object_not_found        = 3
+        quantity_is_0           = 4
+        quantity_is_not_1       = 5
+        interval_overflow       = 6
+        buffer_overflow         = 7
+        OTHERS                  = 8.
+    IF sy-subrc <> 0.
+*  MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*     WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    ENDIF.
+*----
+    MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdabaslik
+      UPDATE
+        FROM VALUE #( FOR hurdabaslik IN lt_hurdabaslik INDEX INTO i (
+          %tky              = hurdabaslik-%tky
+          belno          = |{ lv_number }|
+          belstatu             = '01'
+          %control-belno = if_abap_behv=>mk-on
+          %control-belstatu = if_abap_behv=>mk-on ) )
+    REPORTED DATA(update_reported).
+
+    reported = CORRESPONDING #( DEEP update_reported ).
+
+  ENDMETHOD.
+
+  METHOD sendforapproval.
+
+
+    DATA: iv_kombslid   TYPE zhvl_mm_kom_id,
+          iv_belgeno    TYPE zhvl_mm_hur_bel_no,
+          iv_belgetanim TYPE char100,
+          iv_sayac      TYPE numc3,
+          ev_wiid       TYPE sww_wiid.
+
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*       ENTITY hurdabaslik ALL FIELDS WITH CORRESPONDING #( keys )
+*       RESULT DATA(lt_hurdabaslik2).
+*
+*    result = VALUE #( FOR zhvl_mm_i_hur_baslik IN lt_hurdabaslik2
+*                        ( %tky   = zhvl_mm_i_hur_baslik-%tky
+*                          %param = zhvl_mm_i_hur_baslik ) ).
+*
+*    DATA(ls_hurdabascikis2) = VALUE #( lt_hurdabaslik2[ 1 ] OPTIONAL ).
+*
+**          "hata mesajı
+*    APPEND VALUE #(  %tky        = ls_hurdabascikis2-%tky
+*                      %state_area = 'VALIDATE_CIKIS' )
+*     TO reported-hurdabaslik.
+*    "lv_msg_type = CONV if_abap_behv_message=>t_severity( 'I' ).
+*    APPEND VALUE #(  %tky = ls_hurdabascikis2-%tky ) TO mapped-hurdabaslik.
+*    APPEND VALUE #(  %tky        = result[ 1 ]-%tky
+*                     %state_area = 'VALIDATE_CIKIS'
+*                     %msg        = new_message_with_text(
+*                                     severity = if_abap_behv_message=>severity-warning
+*                                     text     = 'Belgeler komisyon onayına gönderilsin mi?'
+*                                   )
+*                 %element-belstatu = if_abap_behv=>mk-on
+*                     )
+*      TO reported-hurdabaslik.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+     ENTITY hurdabaslik
+       FIELDS ( belno belstatu komid ) WITH CORRESPONDING #( keys )
+     RESULT DATA(lt_hurdabaslik).
+
+    "hurdakalem ile beraber komisyon bilgilerini de okumamız lazım.
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+        ENTITY hurdabaslik BY \_hurdakalem
+          ALL FIELDS
+          WITH CORRESPONDING #( keys )
+          RESULT DATA(lt_hurdakalem).
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdabaslik BY \_hurdakom
+    ALL FIELDS
+    WITH CORRESPONDING #( keys )
+    RESULT DATA(lt_hurdakomisyon).
+
+    DATA(ls_hurdabascikis) = VALUE #( lt_hurdabaslik[ 1 ] OPTIONAL ).
+    DATA(ls_hurdakalem) = VALUE #( lt_hurdakalem[ 1 ] OPTIONAL ).
+    DATA(ls_hurdakomisyon) = VALUE #( lt_hurdakomisyon[ 1 ] OPTIONAL ).
+
+    IF ls_hurdabascikis-belstatu = '01'
+    AND ls_hurdabascikis-komid IS NOT INITIAL
+    AND ls_hurdakalem-hurdakalemuuid IS NOT INITIAL
+    AND ls_hurdabascikis-belno IS NOT INITIAL.
+
+      iv_kombslid = ls_hurdabascikis-komid.
+      iv_belgeno = ls_hurdabascikis-belno.
+      iv_belgetanim = 'Hurdaya Ayrılacak Malzeme Listesi'.
+
+*      "uyarı mesajı
+*      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                        %state_area = 'VALIDATE_ONAY' )
+*       TO reported-hurdabaslik.
+*
+*      DATA(lv_msg_type1) = CONV if_abap_behv_message=>t_severity( 'W' ).
+*      APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO mapped-hurdabaslik.
+*      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                         %state_area = 'VALIDATE_ONAY'
+*                         %msg        = new_message( id       = ''
+*                                                         number   = '001'
+*                                                         severity =  lv_msg_type1
+*                                                         v1       = 'Seçilen belgeler komisyon onayına'
+*                                                         v2       = 'gönderilecektir'
+*                                                         v3       = 'Devam etmek istiyor musunuz?'
+*                                                         v4       = '' )
+*                       %element-belno = if_abap_behv=>mk-on
+*  )
+*          TO reported-hurdabaslik.
+
+      "burada ZHVL_MM_KOM_ONAY tablosuna kayıt atılacak.
+      "Komisyon read entity den dönen tablodaki kayıtları
+
+      DATA: lt_komisyon TYPE TABLE OF zhvl_mm_kom_onay.
+
+      TYPES: BEGIN OF ty_kom,
+
+               kombslid   TYPE zhvl_mm_kom_id,
+               sayac      TYPE numc3,
+               onaysira   TYPE zhvl_mm_kom_onay_sira,
+               gorevtipi  TYPE zhvl_mm_kom_gorev_tipi,
+               ebysno     TYPE zhvl_mm_ebys_sayacno,
+               wi_id      TYPE sww_wiid,
+               opernr     TYPE persno,
+               created_by TYPE syuname,
+               created_at TYPE timestampl,
+
+             END OF ty_kom.
+
+      DATA: ls_kom TYPE ty_kom,
+            lt_kom TYPE TABLE OF ty_kom.
+
+      DATA: lv_result TYPE char1.
+
+      CALL FUNCTION 'ZHVL_MM_KOM_SAYAC'
+        EXPORTING
+          iv_kombslid = iv_kombslid
+        IMPORTING
+          ev_sayac    = iv_sayac.
+
+      LOOP AT lt_hurdakomisyon INTO DATA(ls_hurdakom).
+
+        ls_kom-kombslid = iv_kombslid.
+        ls_kom-sayac    = iv_sayac.
+        ls_kom-onaysira = ls_hurdakom-onaysira.
+        ls_kom-gorevtipi = ls_hurdakom-gorevtipi.
+        ls_kom-wi_id = ''.
+        ls_kom-ebysno = ls_hurdabascikis-belno.
+        ls_kom-opernr = ls_hurdakom-opernr.
+        GET TIME STAMP FIELD ls_kom-created_at .
+        ls_kom-created_by = sy-uname.
+        APPEND ls_kom TO lt_kom.
+        MOVE-CORRESPONDING lt_kom TO lt_komisyon.
+        CLEAR: ls_kom.
+
+      ENDLOOP.
+
+      CALL FUNCTION 'ZHVL_MM_HURDA_ONAY_KAYIT' DESTINATION 'NONE'
+        IMPORTING
+          ev_result   = lv_result
+        TABLES
+          lt_komisyon = lt_komisyon.
+
+        DATA: doctype  TYPE zhvl_ebys_dtype-doc_type,
+              docdefid TYPE zhvl_ebys_doc_type_ext,
+              subject  TYPE string.
+
+        DATA: dosyakod TYPE zhvl_ebys_cls_code_int,
+              word_tmp TYPE zhvl_ebys_tmpl_code_int.
+        DATA: sap_type TYPE zhvl_ebys_swf-scenario_id.
+        DATA: sap_id TYPE zhvl_bc_ebys_sap_bo_ins_id.
+
+        DATA: categ_01 TYPE zhvl_ebys_cat_code_int.
+
+        DATA : sap_atr1 TYPE string,
+               sap_atr2 TYPE string,
+               sap_atr3 TYPE string.
+
+        DATA: imzaci1 TYPE zhvl_ebys_users-userid,
+              imzaci2 TYPE zhvl_ebys_users-userid,
+              imzaci3 TYPE zhvl_ebys_users-userid.
+
+        DATA: paraf1 TYPE zhvl_ebys_users-userid,
+              paraf2 TYPE zhvl_ebys_users-userid,
+              paraf3 TYPE zhvl_ebys_users-userid,
+              paraf4 TYPE zhvl_ebys_users-userid,
+              paraf5 TYPE zhvl_ebys_users-userid.
+
+        DATA: kontrol TYPE zhvl_ebys_users-userid .
+        DATA: lv_imz TYPE string.
+        DATA: lv_imzacistr TYPE string.
+        DATA: imza_son TYPE string .
+
+        LOOP AT lt_komisyon INTO DATA(ls_imzacı).
+
+          SELECT SINGLE usrid FROM pa0105
+          INTO @DATA(lv_usrname)
+          WHERE subty EQ '0001'
+          AND begda LE @sy-datum
+          AND endda GE @sy-datum
+          AND pernr EQ @ls_imzaci-opernr.
+
+          SELECT SINGLE userid FROM zhvl_ebys_usrmap
+          INTO @DATA(lv_imzaci1) WHERE uname = @lv_usrname.
+
+          lv_imzacistr = lv_imzaci1.
+
+          CONCATENATE lv_imzacistr lv_imz INTO lv_imz SEPARATED BY ','.
+
+        ENDLOOP.
+
+        DATA(lv_imzacilar) = lv_imz.
+        SHIFT lv_imzacilar RIGHT DELETING TRAILING `,`.
+
+        SELECT SINGLE userid FROM zhvl_ebys_usrmap
+                 INTO @paraf1 WHERE uname = @sy-uname.
+
+        IF iv_sayac IS NOT INITIAL.
+
+          doctype = 'MANKURUMICI'.
+          DATA(ls_defaults) = zhvl_cl_bc_ebys_doc_services=>get_document_type_defaults( doctype ).
+          docdefid = ls_defaults-doc_def_id .
+          dosyakod = ls_defaults-cls_code .
+          word_tmp = ls_defaults-tmpl_code .
+          categ_01 = ls_defaults-cat_code .
+          imza_son = ls_defaults-doc_to .
+*{ docdefid } { sy-title } - { zhvl_cl_bc_ebys_generic_utils=>get_formatted_datetime( ) }
+          subject = 'Hurda Komisyon Onayı'.
+          sap_atr3 = zhvl_cl_bc_ebys_generic_utils=>get_formatted_datetime( ) .
+
+**********************************************************************
+* HTML BODY
+**********************************************************************
+*@base64_html_detail1" desc="İçerik"  (Mandatory)
+          DATA : lv_icerik TYPE string .
+          DATA : lv_icerik_base64 TYPE string .
+
+          lv_icerik = `<BR>Sayın Kurumiçi</BR>` &
+                      `<BR><B>Hurda Onayı</B></BR>` .
+
+          CALL METHOD zhvl_cl_bc_ebys_generic_utils=>encode_str_base64le
+            EXPORTING
+              iv_content = lv_icerik
+            RECEIVING
+              ev_content = lv_icerik_base64.
+
+**********************************************************************
+* Ekler
+**********************************************************************
+* Ek 1
+**********************************************************************
+*@attachment_filename_01
+*@attachment_value_01
+          DATA : lv_file_content TYPE xstring .
+          DATA : lr_mr_api  TYPE REF TO if_mr_api.
+          DATA : lv_ek_dosya_adi TYPE string.
+          DATA : lv_ek_dosya TYPE string.
+
+          CALL FUNCTION 'ZHVL_MM_HURDA_KOM_TUTANAGI' DESTINATION 'NONE'
+            EXPORTING
+              iv_beln_no = iv_belgeno
+              iv_getpdf  = 'X'
+            IMPORTING
+              ev_pdf     = lv_file_content.
+
+          IF sy-subrc EQ 0 .
+
+            lv_ek_dosya_adi = 'Hurda Komisyon Belgesi.pdf' .
+
+            CALL METHOD zhvl_cl_bc_ebys_generic_utils=>encode_xstr_base64
+              EXPORTING
+                iv_content = lv_file_content
+              RECEIVING
+                ev_content = lv_ek_dosya.
+          ELSE .
+            CLEAR : lv_ek_dosya_adi.
+          ENDIF .
+*
+          DATA : ls_sap_meta  TYPE zhvl_ebys_s_sap_meta_attribute .
+          ls_sap_meta-attribute_01 = sap_atr1.
+          ls_sap_meta-attribute_02 = sap_atr2.
+          ls_sap_meta-attribute_03 = sap_atr3.
+***********************************************************************
+* BODY ATTACHMENT
+**********************************************************************
+          DATA : ls_body_attach TYPE zhvl_bc_ebys_s_doc_body_attach .
+          ls_body_attach-filename = lv_ek_dosya_adi .
+          ls_body_attach-file_content = lv_file_content .
+
+**********************************************************************
+** Replace META VALUES
+**********************************************************************
+          DATA : lt_placeholders  TYPE zhvl_bc_ebys_doc_placeholders.
+
+          lt_placeholders = VALUE #( ( name = zebys_meta_value_konu value = subject )
+                                     ( name = zebys_meta_value_html_icerik value = lv_icerik_base64 )
+*                                     ( name = zebys_meta_value_ek_dosya_ad value = lv_ek_dosya_adi )
+*                                     ( name = zebys_meta_value_ek_dosya value = lv_ek_dosya )
+                                     ( name = zebys_meta_value_parafci value = paraf1 )
+                                     ( name = zebys_meta_value_imzaci value = lv_imzacilar )
+                                     ( name = zebys_meta_value_sablon value = word_tmp )
+                                     ( name = zebys_meta_value_dosya_kodu value = dosyakod )
+                                     ( name = zebys_meta_value_kategori value = categ_01 )
+                                     ( name = zebys_meta_value_imza_sonrasi value = imza_son )
+                                     ( name = zhvl_cl_bc_ebys_integration=>zebys_meta_value_sap_cont( ) value = zhvl_cl_bc_ebys_doc_services=>conv_paraf_ids( VALUE #( ( kontrol ) ) ) )
+
+                                   ).
+
+          sap_type = 'CM0001'.
+          sap_id = iv_belgeno.
+
+          CALL METHOD zhvl_cl_bc_ebys_doc_services=>create_document
+            EXPORTING
+              iv_scenario_id   = sap_type
+              iv_instance_id   = sap_id
+              iv_document_type = doctype
+              is_body_attach   = ls_body_attach
+              "is_sap_meta      = ls_sap_meta
+              it_placeholders  = lt_placeholders
+              iv_check_status  = abap_true
+            IMPORTING
+              et_return        = DATA(lt_return)
+              ev_subrc         = DATA(lv_code)
+            RECEIVING
+              ev_doc_tree_id   = DATA(lv_doctreeid).
+
+        ENDIF.
+
+      IF  lv_code = 0.
+
+        MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+         ENTITY hurdabaslik
+      UPDATE
+      FIELDS ( belstatu wi_id )
+      WITH VALUE #( FOR bel IN lt_hurdabaslik
+                    ( %tky         = bel-%tky
+                       belstatu = '02'
+                       wi_id = ev_wiid
+                      ) )
+   FAILED failed
+    REPORTED reported.
+
+        READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+             ENTITY hurdabaslik ALL FIELDS WITH CORRESPONDING #( keys )
+             RESULT DATA(lt_hurdabaslik2).
+
+        result = VALUE #( FOR zhvl_mm_i_hur_baslik IN lt_hurdabaslik2
+                            ( %tky   = zhvl_mm_i_hur_baslik-%tky
+                              %param = zhvl_mm_i_hur_baslik ) ).
+
+**          "hata mesajı
+*        APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                          %state_area = 'VALIDATE_CIKIS' )
+*         TO reported-hurdabaslik.
+*        "lv_msg_type = CONV if_abap_behv_message=>t_severity( 'I' ).
+*        APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO mapped-hurdabaslik.
+*        APPEND VALUE #(  %tky        = result[ 1 ]-%tky
+*                         %state_area = 'VALIDATE_CIKIS'
+*                         %msg        = new_message_with_text(
+*                                         severity = if_abap_behv_message=>severity-warning
+*                                         text     = 'Belgeler komisyon onayına gönderilsin mi?'
+*                                       )
+*                     %element-belstatu = if_abap_behv=>mk-on
+*                         )
+*          TO reported-hurdabaslik.
+
+*
+*        DATA(lv_msg_type1) = CONV if_abap_behv_message=>t_severity( 'W' ).
+*        APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO mapped-hurdabaslik.
+*        APPEND VALUE #(  %tky        = result[ 1 ]-%tky
+*                           %state_area = 'VALIDATE_CIKIS'
+*                           %msg        = new_message( id       = ''
+*                                                           number   = '001'
+*                                                           severity =  lv_msg_type1
+*                                                           v1       = 'Seçilen belgeler komisyon onayına'
+*                                                           v2       = 'gönderilecektir'
+*                                                           v3       = 'Devam etmek istiyor musunuz?'
+*                                                           v4       = '' )
+*                         %element-belno = if_abap_behv=>mk-on
+*    )
+*            TO reported-hurdabaslik.
+      ELSE.
+        "hata mesajı
+        APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                          %state_area = 'VALIDATE_MATERIAL' )
+         TO reported-hurdabaslik.
+
+        READ TABLE lt_return INTO DATA(ls_return) INDEX 1.
+
+        IF sy-subrc = 0.
+          DATA(lv_ebysmessage) = ls_return-message.
+        ENDIF.
+
+        DATA(lv_msg_type) = CONV if_abap_behv_message=>t_severity( 'E' ).
+        APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO failed-hurdabaslik.
+        APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                         %state_area = 'VALIDATE_MATERIAL'
+                         %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                           severity   = if_abap_behv_message=>severity-error
+                                           textid     = zhvl_mm_mc_hurda_hata=>onay_control
+                                           belno = ls_hurdabascikis-belno
+                                           bapi1 = lv_ebysmessage
+
+    )
+                     %element-belno = if_abap_behv=>mk-on
+                         )
+          TO reported-hurdabaslik.
+      ENDIF.
+
+    ELSE.
+
+      "hata mesajı
+      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                        %state_area = 'VALIDATE_MATERIAL' )
+       TO reported-hurdabaslik.
+
+      lv_msg_type = CONV if_abap_behv_message=>t_severity( 'E' ).
+      APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                       %state_area = 'VALIDATE_MATERIAL'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>onay_control
+                                         belno = ls_hurdabascikis-belno
+
+    )
+                   %element-belno = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD hurdacikisi.
+
+    "hurdacikisi için mal çıkışı bapisi tetiklenir.
+    DATA: gs_header  TYPE bapi2017_gm_head_01.
+    DATA: gs_code    TYPE bapi2017_gm_code.
+    DATA: gs_headret TYPE bapi2017_gm_head_ret.
+    DATA: gt_item TYPE TABLE OF bapi2017_gm_item_create,
+          gs_item TYPE bapi2017_gm_item_create.
+    DATA: gt_sernr TYPE TABLE OF bapi2017_gm_serialnumber,
+          gs_sernr TYPE bapi2017_gm_serialnumber.
+
+    DATA: gt_return  TYPE TABLE OF bapiret2.
+    DATA: gs_retmtd  TYPE bapi2017_gm_head_ret-mat_doc.
+
+    DATA: ls_1 TYPE bapi_msg,
+          ls_2 TYPE bapi_msg,
+          ls_3 TYPE bapi_msg.
+
+    CLEAR: gt_return, gs_retmtd.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+           ENTITY hurdabaslik
+             FIELDS ( belno belstatu bldat budat werks lgort kostl ) WITH CORRESPONDING #( keys )
+           RESULT DATA(lt_hurdabaslik).
+
+    DATA(ls_hurdabascikis) = VALUE #( lt_hurdabaslik[ 1 ] OPTIONAL ).
+
+    IF ls_hurdabascikis-belstatu = '03'.
+
+      READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+          ENTITY hurdabaslik BY \_hurdakalem
+            ALL FIELDS
+            WITH CORRESPONDING #( keys )
+            RESULT DATA(hurdakalem).
+
+      LOOP AT lt_hurdabaslik INTO DATA(ls_hurda).
+* Setup BAPI header data.
+        gs_header-pstng_date = ls_hurda-budat.
+        gs_header-doc_date   = ls_hurda-bldat.
+        DATA(lv_werks) = ls_hurda-werks.
+        DATA(lv_lgort) = ls_hurda-lgort.
+        DATA(lv_kostl) = ls_hurda-kostl.
+        gs_header-pr_uname   = sy-uname.
+        gs_code-gm_code      = '06'.
+      ENDLOOP.
+
+      LOOP AT hurdakalem INTO DATA(hurdabas).
+        DATA(lv_mat_doc) = sy-tabix.
+        "eğer seri numaralı malzeme var ise goodsmvt_serialnumber(bapi2017_gm_serialnumber) doldurulur.
+        READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+               ENTITY hurdakalem BY \_hurdasern
+                 FIELDS ( belsno belno hurdakalemuuid hurdasernruuid sernr  )
+               WITH VALUE #( ( %tky = hurdabas-%tky ) )
+               RESULT DATA(hurdasern).
+
+        IF hurdasern IS NOT INITIAL.
+          LOOP AT hurdasern INTO DATA(gs_sern).
+            MOVE lv_mat_doc TO gs_sernr-matdoc_itm.
+*            SELECT SINGLE sernr FROM zhvl_mm_vh_eqnr INTO @DATA(lv_sernr) WHERE equnr = @gs_sern-equnr.
+*            IF sy-subrc = 0.
+*              MOVE lv_sernr TO gs_sernr-serialno.
+*            ENDIF.
+            gs_sernr-serialno = gs_sern-sernr.
+            MOVE '' TO gs_sernr-uii.
+            APPEND gs_sernr TO gt_sernr.
+            CLEAR gs_sernr.
+          ENDLOOP.
+        ENDIF.
+
+        MOVE '551'        TO gs_item-move_type     .
+        MOVE hurdabas-matnr  TO gs_item-material.
+        MOVE hurdabas-menge  TO gs_item-entry_qnt.
+        MOVE hurdabas-meins  TO gs_item-entry_uom.
+        MOVE hurdabas-charg  TO gs_item-batch. "(dolu ise)
+        MOVE lv_werks  TO gs_item-plant.
+        MOVE lv_lgort  TO gs_item-stge_loc.
+        MOVE hurdabas-grund  TO gs_item-move_reas.
+        MOVE lv_kostl  TO gs_item-costcenter.
+
+        APPEND gs_item TO gt_item.
+        CLEAR gs_item.
+      ENDLOOP.
+
+      READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+              ENTITY hurdabaslik ALL FIELDS WITH CORRESPONDING #( keys )
+              RESULT DATA(lt_hurdabaslik2).
+
+      result = VALUE #( FOR zhvl_mm_i_hur_baslik IN lt_hurdabaslik2
+             ( %tky   = zhvl_mm_i_hur_baslik-%tky
+               %param = zhvl_mm_i_hur_baslik ) ).
+
+      " reported = CORRESPONDING #( DEEP lt_reported ).
+*          "hata mesajı
+*          APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                            %state_area = 'VALIDATE_CIKIS' )
+*           TO reported-hurdabaslik.
+      "lv_msg_type = CONV if_abap_behv_message=>t_severity( 'I' ).
+*      APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO mapped-hurdabaslik.
+*      APPEND VALUE #(  %tky        = result[ 1 ]-%tky
+*                       %state_area = 'VALIDATE_CIKIS'
+*                       %msg        = new_message_with_text(
+*                                       severity = if_abap_behv_message=>severity-warning
+*                                       text     = 'Belgeler için hurdaya çıkış işlemi yapılsın mı?'
+*
+*                                     )
+*                   %element-belstatu = if_abap_behv=>mk-on
+*                       )
+*        TO reported-hurdabaslik.
+
+
+      CALL FUNCTION 'ZHVL_MM_HURDA_CIKIS' DESTINATION 'NONE'
+        EXPORTING
+          gs_header  = gs_header
+          gs_code    = gs_code
+          gt_item    = gt_item
+          gt_sernr   = gt_sernr
+        IMPORTING
+          gs_headret = gs_headret
+          gt_return  = gt_return
+          gs_retmtd  = gs_retmtd.
+
+
+      IF gt_return IS  NOT INITIAL.
+
+        LOOP AT gt_return INTO DATA(gs_return).
+
+          "hata mesajı
+          APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                            %state_area = 'VALIDATE_CIKIS' )
+           TO reported-hurdabaslik.
+
+          DATA(lv_msg_type) = CONV if_abap_behv_message=>t_severity( 'E' ).
+          APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO failed-hurdabaslik.
+          APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                           %state_area = 'VALIDATE_CIKIS'
+                           %msg        = new_message( id       = gs_return-id
+                                                         number   = gs_return-number
+                                                         severity =  lv_msg_type
+                                                         v1       = gs_return-message
+                                                         v2       = ''
+                                                         v3       = ''
+                                                         v4       = '' )
+                       %element-belno = if_abap_behv=>mk-on
+    "alternatif hata mesajı class based(se91)
+*                         %msg        = NEW zhvl_mm_mc_hurda_hata(
+*                                           severity   = if_abap_behv_message=>severity-error
+*                                           textid     = zhvl_mm_mc_hurda_hata=>cikis_control
+*                                           belno = ls_hurdabascikis-belno
+*                                           bapi1 = ls_1
+*                                           bapi2 = ls_2
+*                                           bapi3 = ls_3
+*
+*                                           )
+                           )
+            TO reported-hurdabaslik.
+          CLEAR: gs_return.
+        ENDLOOP.
+      ENDIF.
+
+
+      IF gt_return IS INITIAL.
+        "mblnr tablo kayıt , mal hareketi başarılı ise hem tabloya kayıt atılır.
+        "hem statü 04 olarak güncellenir.
+
+        DATA: gs_mbel TYPE zhvl_mm_hur_mbel.
+        DATA: gt_mbel TYPE TABLE OF zhvl_mm_hur_mbel.
+
+        LOOP AT hurdakalem INTO DATA(ls_kalem).
+
+          gs_mbel-bel_no = ls_kalem-belno.
+          gs_mbel-bel_sno = ls_kalem-belsno.
+          gs_mbel-zeile = ls_kalem-menge.
+          gs_mbel-mblnr = gs_headret-mat_doc.
+          gs_mbel-mjahr = gs_headret-doc_year.
+          gs_mbel-zeile = ls_kalem-belsno.
+
+          APPEND gs_mbel TO gt_mbel.
+          CLEAR gs_mbel.
+
+
+        ENDLOOP.
+
+        INSERT zhvl_mm_hur_mbel FROM TABLE gt_mbel.
+*
+*        APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                          %state_area = 'VALIDATE_CIKIS' )
+*         TO reported-hurdabaslik.
+
+        IF sy-subrc = 0.
+
+          MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+             ENTITY hurdabaslik
+          UPDATE
+          FIELDS ( belstatu )
+          WITH VALUE #( FOR bel IN lt_hurdabaslik
+                        ( %tky         = bel-%tky
+                           belstatu = '04'
+                          ) )
+       FAILED failed
+        REPORTED DATA(lt_reported).
+
+          "Example Code to transition success message for action ended
+*
+* " Modify travel instance
+* MODIFY ENTITIES OF Z_FD_I_Travel_Messages_Demo IN LOCAL MODE
+* ENTITY TRAVEL
+* UPDATE FIELDS ( OverallStatus )
+* WITH VALUE #( FOR KEY IN KEYS ( %TKY = KEY-%TKY
+* OverallStatus = 'B' ) ) "Booked
+* FAILED FAILED
+* REPORTED DATA(LT_REPORTED) .
+* * Read changed data for action result
+* READ ENTITIES OF DMO_Travel_Messages IN LOCAL MODE
+* ENTITY TRAVEL ALL FIELDS WITH
+* CORRESPONDING #( KEYS )
+* RESULT DATA(LT_TRAVEL).
+* RESULT = VALUE #( FOR TRAVEL IN LT_TRAVEL ( %TKY = TRAVEL-%TKY
+* %PARAM = TRAVEL ) ).
+* REPORTED = CORRESPONDING #( DEEP LT_REPORTED ).
+* *Add success message at the end of the action
+* APPEND VALUE #( %TKY = RESULT[ 1 ]-%TKY
+* %MSG = NEW DMO_MESSAGEWRAPPER(
+* TEXTID = DMO_MESSAGEWRAPPER=>ACTION_SUCCESSFUL
+* SEVERITY = IF_ABAP_BEHV_MESSAGE=>SEVERITYSUCCESS )
+* %ELEMENT-OverallSTATUS = IF_ABAP_BEHV=>MK-ON
+* )
+
+*          READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*               ENTITY hurdabaslik ALL FIELDS WITH CORRESPONDING #( keys )
+*               RESULT DATA(lt_hurdabaslik2).
+*
+*          result = VALUE #( FOR zhvl_mm_i_hur_baslik IN lt_hurdabaslik2
+*                 ( %tky   = zhvl_mm_i_hur_baslik-%tky
+*                   %param = zhvl_mm_i_hur_baslik ) ).
+*
+*          reported = CORRESPONDING #( DEEP lt_reported ).
+**          "hata mesajı
+**          APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+**                            %state_area = 'VALIDATE_CIKIS' )
+**           TO reported-hurdabaslik.
+*          "lv_msg_type = CONV if_abap_behv_message=>t_severity( 'I' ).
+*          APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO mapped-hurdabaslik.
+*          APPEND VALUE #(  %tky        = result[ 1 ]-%tky
+*                           %state_area = 'VALIDATE_CIKIS'
+*                           %msg        = new_message_with_text(
+*                                           severity = if_abap_behv_message=>severity-warning
+*                                           text     = 'Seçilen belgeler için hurdaya çıkış işlemi yapılacaktır. Devam etmek istiyor musunuz?'
+*                                         )
+*                       %element-belstatu = if_abap_behv=>mk-on
+*                           )
+*            TO reported-hurdabaslik.
+
+          READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+               ENTITY hurdabaslik ALL FIELDS WITH CORRESPONDING #( keys )
+               RESULT DATA(lt_hurdabaslik3).
+
+          result = VALUE #( FOR zhvl_mm_i_hur_baslik IN lt_hurdabaslik3
+                 ( %tky   = zhvl_mm_i_hur_baslik-%tky
+                   %param = zhvl_mm_i_hur_baslik ) ).
+          "hata mesajı
+*          APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                            %state_area = 'VALIDATE_CIKIS' )
+*           TO reported-hurdabaslik.
+*          "lv_msg_type = CONV if_abap_behv_message=>t_severity( 'I' ).
+*          APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO mapped-hurdabaslik.
+*          APPEND VALUE #(  %tky        = result[ 1 ]-%tky
+*                           %state_area = 'VALIDATE_CIKIS'
+*                           %msg        = new_message_with_text(
+*                                           severity = if_abap_behv_message=>severity-warning
+*                                           text     = 'Hurdaya çıkış işlemi yapılsın mı?'
+*
+*                                         )
+*                       %element-belstatu = if_abap_behv=>mk-on
+*                           )
+*            TO reported-hurdabaslik.
+
+
+*        READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*             ENTITY hurdabaslik ALL FIELDS WITH CORRESPONDING #( keys )
+*             RESULT DATA(lt_hurdabaslik2).
+
+
+
+*        result = VALUE #( FOR zhvl_mm_i_hur_baslik IN lt_hurdabaslik2
+*                            ( %tky   = zhvl_mm_i_hur_baslik-%tky
+*                              %param = zhvl_mm_i_hur_baslik ) ).
+          "IF ls_reported-hurdabaslik IS NOT INITIAL.
+*          reported-hurdabaslik = CORRESPONDING #( ls_reported-hurdabaslik ).
+          " ENDIF.
+        ENDIF.
+      ENDIF.
+    ELSE.
+
+      "hata mesajı
+      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                        %state_area = 'VALIDATE_MATERIAL' )
+       TO reported-hurdabaslik.
+
+      DATA(lv_msg_type2) = CONV if_abap_behv_message=>t_severity( 'E' ).
+      APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                       %state_area = 'VALIDATE_MATERIAL'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>cikis_control
+                                         belno = ls_hurdabascikis-belno
+
+    )
+                   %element-belno = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+      "hata mesajı
+*      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                        %state_area = 'VALIDATE_CIKIS' )
+*       TO reported-hurdabaslik.
+      "hata mesajı
+*      CLEAR failed-hurdabaslik.
+*      CLEAR reported-hurdabaslik.
+*      DATA(lv_msg_type2) = CONV if_abap_behv_message=>t_severity( 'E' ).
+*      APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO failed-hurdabaslik.
+*      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+*                       "%state_area = 'VALIDATE_CIKIS'
+*                       %msg        = new_message( id       = ''
+*                                                     number   = '001'
+*                                                     severity =  lv_msg_type2
+*                                                     v1       = 'Hurdaya çıkış işlemi yapılamaz!'
+*                                                     v2       = ''
+*                                                     v3       = ''
+*                                                     v4       = '' )
+*                   %element-belno = if_abap_behv=>mk-on
+*                       )
+*        TO reported-hurdabaslik.
+*
+*      IF reported-hurdabaslik IS NOT INITIAL.
+*      ENDIF.
+
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD fill_default_values.
+
+    " Required only for draft instances
+    DATA(lt_draft_keys) = keys.
+    DELETE lt_draft_keys WHERE %is_draft = if_abap_behv=>mk-off.
+    IF lt_draft_keys IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    " Read required hurbasliks data
+    READ ENTITY IN LOCAL MODE zhvl_mm_i_hur_baslik
+      FIELDS ( hurdauuid belno kostl )
+      WITH VALUE #( FOR <root_key> IN lt_draft_keys ( %tky = <root_key>-%tky ) )
+    RESULT DATA(lt_hurbasliks).
+
+    LOOP AT lt_hurbasliks ASSIGNING FIELD-SYMBOL(<ls_hurbaslik>).
+
+      "ZHVL_CL_HR_CALISAN class ında uname alanına rezervasyon
+      "belgesini yaratan kullanıcı adını verip dönen
+      "S_PERSONEL-KOSTL (masraf yeri) alanına  getirilmesi
+      IF <ls_hurbaslik>-kostl IS INITIAL.
+
+        "test için kapattık uyazici da sorun var?
+
+        DATA : lo_calisan TYPE REF TO zhvl_cl_hr_calisan.
+        DATA : lv_pernr TYPE pernr_d .
+        CALL METHOD zhvl_cl_hr_employee_utils=>user_pernr
+          CHANGING
+            uname    = sy-uname
+            ev_pernr = lv_pernr.
+
+        IF lv_pernr IS NOT INITIAL.
+          CREATE OBJECT lo_calisan
+            EXPORTING
+              pernr = lv_pernr.
+
+          DATA(lv_kostl) = lo_calisan->s_personel-kostl.
+
+        ENDIF.
+
+        IF lv_kostl IS NOT INITIAL.
+          <ls_hurbaslik>-kostl = lv_kostl.
+
+        ELSE.
+          DATA: ls_error_msg TYPE bapiret2.
+          "hata mesajı
+          ls_error_msg-type = 'E'.
+          ls_error_msg-message_v1 = 'Kullanıcıya ait masraf yeri bakımının'.
+          ls_error_msg-message_v2 = 'yapılması gerekmektedir.'.
+          APPEND VALUE #( %is_draft   = <ls_hurbaslik>-%is_draft
+                                    hurdauuid = <ls_hurbaslik>-hurdauuid
+                                    %msg        = new_message( id         = ls_error_msg-id
+                                                               number     = ls_error_msg-number
+                                                               v1         = ls_error_msg-message_v1
+                                                               v2         = ls_error_msg-message_v2
+                                                               v3         = ''
+                                                               v4         = ''
+                                                               severity   = CONV #( ls_error_msg-type ) )
+                                    %element-kostl = if_abap_behv=>mk-on
+                                  ) TO reported-hurdabaslik.
+          EXIT.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+
+    " Update hurbasliks
+    MODIFY ENTITY IN LOCAL MODE zhvl_mm_i_hur_baslik
+      UPDATE FROM VALUE #( FOR hurbaslik IN lt_hurbasliks
+                           ( %tky                                = hurbaslik-%tky
+                             %data-kostl              = lv_kostl
+                             %data-bldat              = sy-datum
+                             %data-budat              = sy-datum
+                             %control-kostl = if_abap_behv=>mk-on
+                             %control-bldat = if_abap_behv=>mk-on
+                             %control-budat = if_abap_behv=>mk-on
+    ) )
+      FAILED   DATA(lt_failed)
+      REPORTED DATA(ls_reported).
+
+    IF ls_reported-hurdabaslik IS NOT INITIAL.
+      reported-hurdabaslik = CORRESPONDING #( ls_reported-hurdabaslik ).
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD customdel.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdabaslik
+      ALL FIELDS WITH CORRESPONDING #( keys )
+    RESULT DATA(hurdabaslik1).
+
+    DATA(ls_hurdabascikis) = VALUE #( hurdabaslik1[ 1 ] OPTIONAL ).
+
+    IF ls_hurdabascikis-belstatu = '02'
+    OR ls_hurdabascikis-belstatu = '03'
+    OR ls_hurdabascikis-belstatu = '04'
+    OR ls_hurdabascikis-belstatu = '05'.
+
+      "hata mesajı
+      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                        %state_area = 'VALIDATE_MATERIAL' )
+       TO reported-hurdabaslik.
+
+      DATA(lv_msg_type2) = CONV if_abap_behv_message=>t_severity( 'E' ).
+      APPEND VALUE #(  %tky = ls_hurdabascikis-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = ls_hurdabascikis-%tky
+                       %state_area = 'VALIDATE_MATERIAL'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>silme_control
+                                         belstatu = ls_hurdabascikis-belstatu
+
+    )
+                   %element-belstatu = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+
+      EXIT.
+    ENDIF.
+
+    MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+        ENTITY hurdabaslik
+           UPDATE
+             FIELDS ( belstatu )
+             WITH VALUE #( FOR key IN keys
+                             ( %tky         = key-%tky
+                               belstatu = '05' ) )
+        FAILED failed
+        REPORTED reported.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+      ENTITY hurdabaslik
+        ALL FIELDS WITH CORRESPONDING #( keys )
+      RESULT DATA(hurdabasliks).
+
+    result = VALUE #( FOR hurdabaslik IN hurdabasliks
+                        ( %tky   = hurdabaslik-%tky
+                          %param = hurdabaslik ) ).
+  ENDMETHOD.
+*
+*  METHOD header_data.
+**
+**    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+**       ENTITY hurdabaslik
+**         FIELDS ( belno belstatu ) WITH CORRESPONDING #( keys )
+**       RESULT DATA(lt_hurdabaslik).
+**
+**    DATA(ls_hurdabaslik) = VALUE #( lt_hurdabaslik[ 1 ] OPTIONAL ).
+**
+**    IF ls_hurdabaslik-werks IS INITIAL OR ls_hurdabaslik-lgort IS INITIAL.
+**      "hata mesajı
+**      APPEND VALUE #(  %tky        = ls_hurdabaslik-%tky
+**                        %state_area = 'VALIDATE_MATERIAL' )
+**       TO reported-hurdabaslik.
+**
+**      APPEND VALUE #(  %tky = ls_hurdabaslik-%tky ) TO failed-hurdabaslik.
+**      APPEND VALUE #(  %tky        = ls_hurdabaslik-%tky
+**                       %state_area = 'VALIDATE_MATERIAL'
+**                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+**                                         severity   = if_abap_behv_message=>severity-error
+**                                         textid     = zhvl_mm_mc_hurda_hata=>mandatory_control
+**
+**)
+**
+**                       )
+**        TO reported-hurdabaslik.
+**      EXIT.
+**    ENDIF.
+**
+**    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+**       ENTITY hurdakalem
+**        ALL FIELDS  WITH CORRESPONDING #( keys )
+**       RESULT DATA(lt_hurdakalem).
+**
+**    DATA(ls_hurdakalem) = VALUE #( lt_hurdakalem[ 1 ] OPTIONAL ).
+**
+**    IF lt_hurdakalem IS INITIAL.
+**      "hata mesajı
+**      APPEND VALUE #(  %tky        = ls_hurdabaslik-%tky
+**                        %state_area = 'VALIDATE_MATERIAL' )
+**       TO reported-hurdabaslik.
+**
+**      APPEND VALUE #(  %tky = ls_hurdabaslik-%tky ) TO failed-hurdabaslik.
+**      APPEND VALUE #(  %tky        = ls_hurdabaslik-%tky
+**                       %state_area = 'VALIDATE_MATERIAL'
+**                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+**                                         severity   = if_abap_behv_message=>severity-error
+**                                         textid     = zhvl_mm_mc_hurda_hata=>kalem_control
+**
+**)
+**                   %element-belno = if_abap_behv=>mk-on
+**                       )
+**        TO reported-hurdabaslik.
+**      EXIT.
+**    ENDIF.
+*
+*
+*  ENDMETHOD.
+
+*  METHOD charg_control.
+
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*      ENTITY hurdakalem BY \_hurdabaslik
+*        FIELDS ( hurdauuid belno werks lgort  )
+*        WITH CORRESPONDING #( keys )
+*        RESULT DATA(lt_hurdabaslik).
+*
+*    DATA(ls_hurdabaskalem) = VALUE #( lt_hurdabaslik[ 1 ] OPTIONAL ).
+*
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*       ENTITY hurdabaslik BY \_hurdakalem
+*         ALL FIELDS
+*         WITH CORRESPONDING #( keys )
+*         RESULT DATA(lt_hurdakalem).
+*
+**    IF lt_hurdakalem IS INITIAL.
+**"hata mesajı
+**          APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+**                            %state_area = 'VALIDATE_MATERIAL' )
+**           TO reported-hurdabaslik.
+**
+**          APPEND VALUE #(  %tky = ls_hurdabaskalem-%tky ) TO failed-hurdabaslik.
+**          APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+**                           %state_area = 'VALIDATE_MATERIAL'
+**                           %msg        = NEW zhvl_mm_mc_hurda_hata(
+**                                             severity   = if_abap_behv_message=>severity-error
+**                                             textid     = zhvl_mm_mc_hurda_hata=>kalem_control
+**
+**    )
+**                       %element-belno = if_abap_behv=>mk-on
+**                           )
+**            TO reported-hurdabaslik.
+**          EXIT.
+**    ENDIF.
+*
+*    LOOP AT lt_hurdakalem INTO DATA(hurdabas).
+*
+*      SELECT SINGLE sernp FROM marc INTO @DATA(iv_sernp)
+*      WHERE werks = @ls_hurdabaskalem-werks
+*      AND matnr = @hurdabas-matnr.
+*
+*      IF iv_sernp IS NOT INITIAL.
+*        READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*       ENTITY hurdakalem BY \_hurdasern
+*         ALL FIELDS
+*         WITH CORRESPONDING #( keys )
+*         RESULT DATA(lt_hurdasern).
+*
+*        IF lt_hurdasern IS INITIAL.
+*          DATA(lv_sernerror) = 'X'.
+*        ENDIF.
+*      ENDIF.
+*
+*      "Charg alanı lotlu malzeme kontrolü
+*      SELECT SINGLE xchpf FROM mara INTO @DATA(iv_xcharg)
+*            WHERE  matnr = @hurdabas-matnr.
+*
+*      IF iv_xcharg = 'X' AND hurdabas-charg IS INITIAL.
+*        DATA(lv_chargerror1) = 'X'.
+*      ELSEIF iv_xcharg NE 'X' AND hurdabas-charg IS NOT INITIAL.
+*        DATA(lv_chargerror2) = 'X'.
+*      ENDIF.
+*
+*
+*    IF lv_sernerror = 'X'.
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                       %state_area = 'VALIDATE_MATERIAL' )
+*      TO reported-hurdabaslik.
+*
+*
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                       %state_area = 'VALIDATE_MATERIAL'
+*                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+*                                         severity   = if_abap_behv_message=>severity-error
+*                                         textid     = zhvl_mm_mc_hurda_hata=>material_charg_control
+*
+*)
+*                   %element-belno = if_abap_behv=>mk-on
+*                       )
+*        TO reported-hurdabaslik.
+*      APPEND VALUE #(  %tky = ls_hurdabaskalem-%tky ) TO failed-hurdabaslik.
+*      CONTINUE.
+*    ENDIF.
+*
+*
+*    IF lv_chargerror1 = 'X'.
+**        "hata mesajı
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                        %state_area = 'VALIDATE_MATERIAL' )
+*       TO reported-hurdabaslik.
+*
+*      APPEND VALUE #(  %tky = ls_hurdabaskalem-%tky ) TO failed-hurdabaslik.
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                       %state_area = 'VALIDATE_MATERIAL'
+*                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+*                                         severity   = if_abap_behv_message=>severity-error
+*                                         textid     = zhvl_mm_mc_hurda_hata=>material_charg_control
+*
+*)
+*                   %element-belno = if_abap_behv=>mk-on
+*                       )
+*        TO reported-hurdabaslik.
+*      CONTINUE.
+*    ENDIF.
+*
+*    IF lv_chargerror2 = 'X'.
+**        "hata mesajı
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                        %state_area = 'VALIDATE_MATERIAL' )
+*       TO reported-hurdabaslik.
+*
+*      APPEND VALUE #(  %tky = ls_hurdabaskalem-%tky ) TO failed-hurdabaslik.
+*      APPEND VALUE #(  %tky        = ls_hurdabaskalem-%tky
+*                       %state_area = 'VALIDATE_MATERIAL'
+*                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+*                                         severity   = if_abap_behv_message=>severity-error
+*                                         textid     = zhvl_mm_mc_hurda_hata=>lot_control
+**                                           werks = ls_hurdabaskalem-werks
+**                                           matnr = hurdabas-matnr
+*)
+*                   %element-belno = if_abap_behv=>mk-on
+*                       )
+*        TO reported-hurdabaslik.
+*      CONTINUE.
+*    ENDIF.
+*
+*    ENDLOOP.
+
+*  ENDMETHOD.
+
+
+  METHOD create_komisyon_draft.
+*    DATA: lt_headers_to_create TYPE it_headers_to_create,
+*          lt_items_to_create   TYPE it_items_to_create,
+**          failed type failed,
+**          reported type reported,
+*          lt_hurda_map         TYPE it_hurda_map.
+*    APPEND LINES OF it_headers_to_create TO lt_headers_to_create.
+*    APPEND LINES OF it_items_to_create TO lt_items_to_create.
+*    APPEND LINES OF it_hurda_map TO lt_hurda_map.
+*    " Create new reservations
+*    MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*      ENTITY hurdabaslik
+*        CREATE
+*        SET FIELDS WITH lt_headers_to_create
+*      MAPPED DATA(mapped_header_create)
+*      FAILED failed.
+*    "burada hata alıyor, mapped header create boş dönüyor.
+*    "exchange CIDs with final IDs
+*    LOOP AT lt_hurda_map ASSIGNING FIELD-SYMBOL(<ls_hurda_map>).
+*      <ls_hurda_map>-target_final = mapped_header_create-hurdabaslik[ %cid = <ls_hurda_map>-target_cid ]-hurdauuid. "get final ID via CID
+*      LOOP AT lt_items_to_create ASSIGNING FIELD-SYMBOL(<item_to_create>) WHERE %cid_ref = <ls_hurda_map>-target_cid.
+*        <item_to_create>-hurdauuid = <ls_hurda_map>-target_final.
+*        CLEAR <item_to_create>-%cid_ref.
+*      ENDLOOP.
+*    ENDLOOP.
+*
+*    " No sense to proceed in case of header creation failed -> remove from create list of the item
+*    LOOP AT failed-hurdabaslik ASSIGNING FIELD-SYMBOL(<ls_failed_hdr>).
+*      DELETE TABLE lt_items_to_create WITH TABLE KEY cid COMPONENTS %cid_ref = <ls_failed_hdr>-%cid %key-hurdauuid = <ls_failed_hdr>-hurdauuid.
+*    ENDLOOP.
+*
+*    MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*      ENTITY hurdabaslik
+*        CREATE BY \_hurdakom
+*        SET FIELDS WITH lt_items_to_create
+*      FAILED DATA(ls_failed_item)
+*      REPORTED DATA(ls_reported_item).
+*
+*    failed-hurdakom  = ls_failed_item-hurdakom.
+*    reported-hurdakom = ls_reported_item-hurdakom.
+*
+*    " Read the created reservations
+*    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+*      ENTITY hurdabaslik
+*      ALL FIELDS WITH VALUE #( FOR ls_hdr IN mapped_header_create-hurdabaslik
+*                                    ( %tky = ls_hdr-%tky ) )
+*      RESULT DATA(lt_created_draft)
+*      FAILED failed.
+*
+*    " Return them as a result
+*    LOOP AT lt_created_draft ASSIGNING FIELD-SYMBOL(<ls_created_draft>).
+*      APPEND VALUE #( hurdauuid = VALUE #( lt_hurda_map[ target_final = <ls_created_draft>-hurdauuid ]-source )
+*                      %param      = <ls_created_draft> ) TO result.
+*    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD copy.
+
+    DATA:
+      lt_messages           TYPE bapiret2_t,
+      ls_message            TYPE bapiret2,
+      lt_passed_keys        LIKE keys,
+
+      lt_resvn_to_create    TYPE TABLE FOR CREATE zhvl_mm_i_hur_baslik\\hurdabaslik,
+      lt_resvn_it_to_create TYPE TABLE FOR CREATE zhvl_mm_i_hur_baslik\\hurdabaslik\_hurdakom.
+
+    DATA: es_basl    TYPE zhvl_mm_kom_basl,
+          et_komkale TYPE TABLE OF zhvl_mm_kom_s_data.
+
+    DATA: lv_ind TYPE c LENGTH 3.
+*>>> Check conformity of mvt.type and plant
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+      IF <ls_key>-%param-komisyon IS NOT INITIAL.
+        DATA(lv_komid) = <ls_key>-%param-komisyon.
+        " Add correct keys for further processing
+        APPEND <ls_key> TO lt_passed_keys.
+      ENDIF.
+    ENDLOOP.
+
+
+    "Seçilen komisyona göre detayları getirilir
+    CALL FUNCTION 'ZHVL_MM_KOM_DATA'
+      EXPORTING
+        iv_kombslid = lv_komid
+      IMPORTING
+        es_basl     = es_basl
+      TABLES
+        et_komkale  = et_komkale.
+
+*>>> Data update preparation
+    LOOP AT lt_passed_keys ASSIGNING <ls_key>.
+
+      APPEND INITIAL LINE TO lt_resvn_to_create ASSIGNING FIELD-SYMBOL(<ls_resvn_to_create>).
+      <ls_resvn_to_create>-%cid                                  = <ls_key>-%cid.
+      <ls_resvn_to_create>-%is_draft                             = if_abap_behv=>mk-on.
+      <ls_resvn_to_create>-komid                     = <ls_key>-%param-komisyon.
+
+*      <ls_resvn_to_create>-RecordType                            = ''.
+      <ls_resvn_to_create>-%control-komid            = cl_abap_behv=>flag_changed.
+
+*      <ls_resvn_to_create>-%control-RecordType                   = cl_abap_behv=>flag_changed.
+
+      " Add an item as reservation must have at least one by requirement if requested
+      APPEND INITIAL LINE TO lt_resvn_it_to_create ASSIGNING FIELD-SYMBOL(<ls_resvn_it_to_create>).
+      <ls_resvn_it_to_create>-%tky-%is_draft    = if_abap_behv=>mk-on.
+      <ls_resvn_it_to_create>-%cid_ref = <ls_key>-%cid. "remember header CID here, to retrieve final header ID later via this reference
+
+      LOOP AT et_komkale INTO DATA(ls_komkale) WHERE kombsluuid = es_basl-kombsluuid.
+
+        APPEND INITIAL LINE TO <ls_resvn_it_to_create>-%target ASSIGNING FIELD-SYMBOL(<ls_item_target>).
+        <ls_item_target>-%cid                     = |ITEM-{ <ls_key>-%cid }|. "build unique CID for item
+        <ls_item_target>-%is_draft                = if_abap_behv=>mk-on.
+
+
+        lv_ind = sy-tabix.
+        CONCATENATE <ls_item_target>-%cid lv_ind INTO <ls_item_target>-%cid.
+
+        CONDENSE <ls_item_target>-%cid.
+
+        <ls_item_target>-onaysira = ls_komkale-onaysira .
+        <ls_item_target>-gorevtipi = ls_komkale-gorevtipi .
+
+        SELECT SINGLE tanim FROM zi_mm_kom_gorev_tipi
+        INTO @DATA(lv_gtanim)
+        WHERE gotipi = @ls_komkale-gorevtipi.
+
+        <ls_item_target>-gtanim = lv_gtanim.
+        <ls_item_target>-kombslid = <ls_key>-%param-komisyon.
+        <ls_item_target>-%control-onaysira = if_abap_behv=>mk-on.
+        <ls_item_target>-%control-gorevtipi = if_abap_behv=>mk-on.
+        <ls_item_target>-%control-gtanim = if_abap_behv=>mk-on.
+        <ls_item_target>-%control-kombslid = if_abap_behv=>mk-on.
+
+        "<ls_item_target>- = ls_komkale-gorevtipi .
+
+      ENDLOOP.
+
+    ENDLOOP.
+    " Exit the action if no data to create left
+    IF lt_resvn_to_create IS INITIAL.
+      RETURN.
+    ENDIF.
+*<<<
+
+    MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+      ENTITY hurdabaslik
+      CREATE FROM lt_resvn_to_create
+      MAPPED mapped
+      FAILED   DATA(ls_failed)
+      REPORTED DATA(ls_reported).
+
+    " Add messages to exist
+    APPEND LINES OF ls_reported-hurdabaslik TO reported-hurdabaslik.
+    APPEND LINES OF ls_failed-hurdabaslik TO failed-hurdabaslik.
+
+    " Separate create of item to avoid wrong run of determinations
+    IF lt_resvn_it_to_create IS NOT INITIAL.
+      " retrieve created reservation IDs and map them to items
+      LOOP AT lt_resvn_it_to_create ASSIGNING FIELD-SYMBOL(<ls_header_ref>).
+
+        DATA(lv_resvn_id) = mapped-hurdabaslik[ %cid = <ls_header_ref>-%cid_ref ]-hurdauuid. "get final ID via cid
+        <ls_header_ref>-hurdauuid = lv_resvn_id.
+        CLEAR <ls_header_ref>-%cid_ref. "get rid of cid_ref, as we have the final ID now and framework seems not to like the cid here
+
+      ENDLOOP.
+
+      MODIFY ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+        ENTITY hurdabaslik
+        CREATE BY \_hurdakom
+        FROM lt_resvn_it_to_create
+        MAPPED   DATA(ls_item_mapped)
+        FAILED   DATA(ls_item_failed)
+        REPORTED DATA(ls_item_reported).
+
+      " Merge output parameters for item
+      mapped-hurdakom   = ls_item_mapped-hurdakom.
+      failed-hurdakom   = ls_item_failed-hurdakom.
+      reported-hurdakom = ls_item_reported-hurdakom.
+    ENDIF.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+      ENTITY hurdabaslik
+      ALL FIELDS WITH VALUE #( FOR resvn IN mapped-hurdabaslik ( %tky = resvn-%tky ) )
+      RESULT DATA(lt_created_draft)
+      FAILED DATA(ls_n_failed)
+      REPORTED DATA(ls_n_reported).
+
+    " Add messages to exist
+    APPEND LINES OF ls_n_reported-hurdabaslik TO reported-hurdabaslik.
+    APPEND LINES OF ls_n_failed-hurdabaslik TO failed-hurdabaslik.
+
+    result = VALUE #( FOR resvn IN mapped-hurdabaslik ( %cid   = resvn-%cid
+                                                                 %param = VALUE #( lt_created_draft[ KEY draft %tky = resvn-%tky ] OPTIONAL ) ) ).
+
+
+  ENDMETHOD.
+
+  METHOD komisyon.
+
+  ENDMETHOD.
+
+  METHOD mandatory_data.
+*
+    DATA: lv_error  TYPE boole_d.
+    "zorunlu alan kontrolleri
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+       ENTITY hurdabaslik
+         FIELDS ( werks lgort bldat budat )
+          WITH VALUE #( FOR <root_key> IN keys ( %tky = <root_key>-%tky ) )
+         RESULT DATA(lt_hurdabaslik).
+
+    CHECK lt_hurdabaslik IS NOT INITIAL.
+
+    DATA(hurdabas) = VALUE #( lt_hurdabaslik[ 1 ] OPTIONAL ).
+
+    IF hurdabas-werks IS INITIAL.
+      "hata mesajı
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                        %state_area = 'VALIDATE_MANDATORY' )
+       TO reported-hurdabaslik.
+
+*          APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                       %state_area = 'VALIDATE_MANDATORY'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>mandatory_control
+                                         werks = hurdabas-werks
+  )
+                         %element-werks = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+      lv_error = abap_true.
+
+    ENDIF.
+
+    IF hurdabas-lgort IS INITIAL.
+      "hata mesajı
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                        %state_area = 'VALIDATE_MANDATORY' )
+       TO reported-hurdabaslik.
+
+*          APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                       %state_area = 'VALIDATE_MANDATORY'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>mandatory_control
+"                                         werks = hurdabas-werks
+  )
+                         %element-lgort = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+      lv_error = abap_true.
+
+    ENDIF.
+
+    IF hurdabas-bldat IS INITIAL.
+      "hata mesajı
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                        %state_area = 'VALIDATE_MANDATORY' )
+       TO reported-hurdabaslik.
+
+*          APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                       %state_area = 'VALIDATE_MANDATORY'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>mandatory_control
+"                                         bldat = hurdabas-bldat
+  )
+                         %element-bldat = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+      lv_error = abap_true.
+
+    ENDIF.
+
+    IF hurdabas-budat IS INITIAL.
+      "hata mesajı
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                        %state_area = 'VALIDATE_MANDATORY' )
+       TO reported-hurdabaslik.
+
+*          APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                       %state_area = 'VALIDATE_MANDATORY'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>mandatory_control
+ "                                        werks = hurdabas-werks
+  )
+                         %element-budat = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+      lv_error = abap_true.
+
+    ENDIF.
+
+    READ ENTITIES OF zhvl_mm_i_hur_baslik IN LOCAL MODE
+    ENTITY hurdabaslik BY \_hurdakalem
+    ALL FIELDS WITH
+    VALUE #( FOR <root_key> IN keys ( %tky = <root_key>-%tky ) )
+    RESULT DATA(lt_hurdakalem).
+
+    IF lt_hurdakalem IS INITIAL.
+      "hata mesajı
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                        %state_area = 'VALIDATE_MANDATORY' )
+       TO reported-hurdabaslik.
+
+*          APPEND VALUE #(  %tky = hurdabas-%tky ) TO failed-hurdabaslik.
+      APPEND VALUE #(  %tky        = hurdabas-%tky
+                       %state_area = 'VALIDATE_MANDATORY'
+                       %msg        = NEW zhvl_mm_mc_hurda_hata(
+                                         severity   = if_abap_behv_message=>severity-error
+                                         textid     = zhvl_mm_mc_hurda_hata=>kal_control
+ "                                        werks = hurdabas-werks
+  )
+                         "%element-budat = if_abap_behv=>mk-on
+                       )
+        TO reported-hurdabaslik.
+      lv_error = abap_true.
+    ENDIF.
+
+  ENDMETHOD.
+
+ENDCLASS.
