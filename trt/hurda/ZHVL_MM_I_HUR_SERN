@@ -1,0 +1,37 @@
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Hurda Serino view'
+
+define view entity ZHVL_MM_I_HUR_SERN
+  as select from zhvl_mm_hur_sern as HurdaSern
+
+  association        to parent ZHVL_MM_I_HUR_KALEM as _Hurdakalem  on  $projection.Hurdauuid      = _Hurdakalem.Hurdauuid
+                                                                   and $projection.Hurdakalemuuid = _Hurdakalem.Hurdakalemuuid
+
+  association [1..1] to ZHVL_MM_I_HUR_BASLIK       as _Hurdabaslik on  $projection.Hurdauuid = _Hurdabaslik.Hurdauuid
+  //association [1..*] to ZHVL_MM_VH_EQNR     a       as _Hurdasernr  on  $projection.Matnr = _Hurdasernr.Matnr
+
+{
+  key  HurdaSern.hurdasernruuid as Hurdasernruuid,
+  key  HurdaSern.hurdauuid      as Hurdauuid,
+  key  HurdaSern.hurdakalemuuid as Hurdakalemuuid,
+       HurdaSern.bel_no         as BelNo,
+       HurdaSern.bel_sno        as BelSno,
+       HurdaSern.equnr          as Equnr,
+       HurdaSern.werks          as Werks,
+       HurdaSern.lgort          as Lgort,
+       HurdaSern.matnr          as Matnr,
+       HurdaSern.charg          as Charg,
+       HurdaSern.sernr          as Sernr,
+       @Semantics.user.createdBy: true
+       created_by               as CreatedBy,
+       @Semantics.systemDateTime.createdAt: true
+       created_at               as CreatedAt,
+       @Semantics.user.lastChangedBy: true
+       last_changed_by          as LastChangedBy,
+       @Semantics.systemDateTime.lastChangedAt: true
+       last_changed_at          as LastChangedAt,
+       @Semantics.systemDateTime.localInstanceLastChangedAt: true
+       local_last_changed_at    as LocalLastChangedAt,
+       _Hurdakalem,
+       _Hurdabaslik
+}
