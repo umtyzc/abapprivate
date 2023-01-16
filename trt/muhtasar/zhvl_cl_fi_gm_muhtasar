@@ -1,0 +1,503 @@
+CLASS zhvl_cl_fi_gm_muhtasar DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    INTERFACES if_rap_query_provider .
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+
+ENDCLASS.
+
+CLASS zhvl_cl_fi_gm_muhtasar IMPLEMENTATION.
+
+
+  METHOD if_rap_query_provider~select.
+
+    DATA: lv_param TYPE bukrs.
+
+    TYPES: BEGIN OF ty_muhtasar,
+             sirano           TYPE syst_tabix,
+             gjahr            TYPE gjahr,
+             adunvan          TYPE c LENGTH 70,
+             adresno          TYPE bu_adext,
+             adres            TYPE c LENGTH 100,
+             ulkekodu         TYPE landa,
+             tcno             TYPE c LENGTH 10,
+             vergino          TYPE c LENGTH 11,
+             vergidairesi     TYPE c LENGTH 16,
+             budat            TYPE budat,
+             bldat            TYPE bldat,
+             faturano         TYPE xblnr1,
+             blarttxt         TYPE txt50,
+             belgetoplamtutar TYPE dmbtr,
+             vergitutari      TYPE dmbtr,
+             kdvtevkifatkodu  TYPE c LENGTH 1,
+             kdvtevkifattanim TYPE c LENGTH 20,
+             hesapno          TYPE hkont,
+             buzid            TYPE buzid,
+             anahesapmetin    TYPE txt50_skat,
+             belnr            TYPE belnr_d,
+             borcalacak       TYPE shkzg,
+             borcalacakmetni  TYPE c LENGTH 10,
+             belgeparabirimi  TYPE waers,
+             satici           TYPE lifnr,
+             bdpkodu          TYPE c LENGTH 250,
+             bdpaciklama      TYPE c LENGTH 250,
+
+           END OF ty_muhtasar.
+
+    DATA lt_filter_ranges_sirketkodu TYPE RANGE OF zhvl_c_muhtasar_beyan-bukrs.
+    DATA ls_filter_ranges_sirketkodu LIKE LINE OF lt_filter_ranges_sirketkodu.
+    DATA lt_filter_ranges_maliyil TYPE RANGE OF zhvl_c_muhtasar_beyan-gjahr.
+    DATA ls_filter_ranges_maliyil LIKE LINE OF lt_filter_ranges_maliyil.
+    DATA lt_filter_ranges_bolum TYPE RANGE OF zhvl_c_muhtasar_beyan-bolum.
+    DATA ls_filter_ranges_bolum LIKE LINE OF lt_filter_ranges_bolum.
+    DATA lt_filter_ranges_hesapno TYPE RANGE OF zhvl_c_muhtasar_beyan-hesapno.
+    DATA ls_filter_ranges_hesapno LIKE LINE OF lt_filter_ranges_hesapno.
+    DATA lt_filter_ranges_bldat TYPE RANGE OF zhvl_c_muhtasar_beyan-bldat.
+    DATA ls_filter_ranges_bldat LIKE LINE OF lt_filter_ranges_bldat.
+    DATA lt_filter_ranges_bldatbas TYPE RANGE OF zhvl_c_muhtasar_beyan-bldatbaslangic.
+    DATA ls_filter_ranges_bldatbas LIKE LINE OF lt_filter_ranges_bldatbas.
+    DATA lt_filter_ranges_bldatbit TYPE RANGE OF zhvl_c_muhtasar_beyan-bldatbitis.
+    DATA ls_filter_ranges_bldatbit LIKE LINE OF lt_filter_ranges_bldatbit.
+
+    DATA: lt_muhtasar2 TYPE TABLE OF ty_muhtasar,
+          lt_muhtasar  TYPE TABLE OF ty_muhtasar,
+          lt_muhtasar4 TYPE TABLE OF ty_muhtasar,
+          ls_muhtasar  TYPE ty_muhtasar,
+          ls_muhtasar2 TYPE ty_muhtasar.
+    TRY.
+
+        "Check if data is requested
+        IF io_request->is_data_requested(  ).
+
+          TRY.
+              "get and add filter
+              DATA(lt_filter_cond) = io_request->get_filter( )->get_as_ranges( ). "  get_filter_conditions( ).
+
+            CATCH cx_rap_query_filter_no_range INTO DATA(lx_no_sel_option).
+
+          ENDTRY.
+
+
+          DATA(sort_elements) = io_request->get_sort_elements( ).
+          DATA(lt_sort_criteria) = VALUE string_table( FOR sort_element IN sort_elements
+                                                     ( sort_element-element_name && COND #( WHEN sort_element-descending = abap_true
+                                                                                            THEN 'descending'
+                                                                                            ELSE 'ascending' ) ) ).
+          DATA(lv_sort_string)  = COND #( WHEN lt_sort_criteria IS INITIAL THEN 'primary key'
+                                                                           ELSE concat_lines_of( table = lt_sort_criteria sep = `, ` ) ).
+
+          DATA(lv_page_size) = io_request->get_paging( )->get_page_size( ).
+          DATA(lv_skip) = io_request->get_paging( )->get_offset( ).
+          DATA(lv_max_rows) = COND #( WHEN lv_page_size = if_rap_query_paging=>page_size_unlimited THEN 0
+          ELSE lv_page_size ).
+          " First time get records from 0 to 20 (assuming page size 20)
+          " Second time get records from 21 to 40 and next 31 to 60
+          lv_max_rows = lv_skip + lv_page_size.
+          IF lv_skip > 0.
+            lv_skip = lv_skip + 1.
+          ENDIF.
+
+          READ TABLE lt_filter_cond WITH KEY name = 'BUKRS' INTO DATA(ls_sirketkodu_cond).
+          IF sy-subrc EQ 0.
+            LOOP AT ls_sirketkodu_cond-range INTO DATA(ls_sel_opt_sirketkodu).
+              MOVE-CORRESPONDING ls_sel_opt_sirketkodu TO ls_filter_ranges_sirketkodu.
+              INSERT ls_filter_ranges_sirketkodu INTO TABLE lt_filter_ranges_sirketkodu.
+            ENDLOOP.
+          ENDIF.
+
+          READ TABLE  lt_filter_cond WITH  KEY name = 'GJAHR' INTO DATA(ls_maliyil_cond).
+          IF sy-subrc EQ 0.
+            LOOP AT ls_maliyil_cond-range INTO DATA(ls_sel_opt_maliyil).
+              MOVE-CORRESPONDING ls_sel_opt_maliyil TO ls_filter_ranges_maliyil.
+              INSERT ls_filter_ranges_maliyil INTO TABLE lt_filter_ranges_maliyil.
+            ENDLOOP.
+          ENDIF.
+
+          READ TABLE  lt_filter_cond WITH  KEY name = 'BOLUM' INTO DATA(ls_bolum_cond).
+          IF sy-subrc EQ 0.
+            LOOP AT ls_bolum_cond-range INTO DATA(ls_sel_opt_bolum).
+              MOVE-CORRESPONDING ls_sel_opt_bolum TO ls_filter_ranges_bolum.
+              INSERT ls_filter_ranges_bolum INTO TABLE lt_filter_ranges_bolum.
+            ENDLOOP.
+          ENDIF.
+
+          READ TABLE  lt_filter_cond WITH  KEY name = 'HESAPNO' INTO DATA(ls_hesapno_cond).
+          IF sy-subrc EQ 0.
+            LOOP AT ls_hesapno_cond-range INTO DATA(ls_sel_opt_hesapno).
+              MOVE-CORRESPONDING ls_sel_opt_hesapno TO ls_filter_ranges_hesapno.
+              INSERT ls_filter_ranges_hesapno INTO TABLE lt_filter_ranges_hesapno.
+            ENDLOOP.
+          ENDIF.
+
+          READ TABLE  lt_filter_cond WITH  KEY name = 'BLDAT' INTO DATA(ls_bldat_cond).
+          IF sy-subrc EQ 0.
+            LOOP AT ls_bldat_cond-range INTO DATA(ls_sel_opt_bldat).
+              MOVE-CORRESPONDING ls_sel_opt_bldat TO ls_filter_ranges_bldat.
+              INSERT ls_filter_ranges_bldat INTO TABLE lt_filter_ranges_bldat.
+            ENDLOOP.
+          ENDIF.
+
+          READ TABLE  lt_filter_cond WITH  KEY name = 'BLDATBASLANGIC' INTO DATA(ls_bldatbas_cond).
+          IF sy-subrc EQ 0.
+            LOOP AT ls_bldatbas_cond-range INTO DATA(ls_sel_opt_bldatbas).
+              MOVE-CORRESPONDING ls_sel_opt_bldatbas TO ls_filter_ranges_bldatbas.
+              INSERT ls_filter_ranges_bldatbas INTO TABLE lt_filter_ranges_bldatbas.
+            ENDLOOP.
+          ENDIF.
+
+          READ TABLE  lt_filter_cond WITH  KEY name = 'BLDATBITIS' INTO DATA(ls_bldatbit_cond).
+          IF sy-subrc EQ 0.
+            LOOP AT ls_bldatbit_cond-range INTO DATA(ls_sel_opt_bldatbit).
+              MOVE-CORRESPONDING ls_sel_opt_bldatbit TO ls_filter_ranges_bldatbit.
+              INSERT ls_filter_ranges_bldatbit INTO TABLE lt_filter_ranges_bldatbit.
+            ENDLOOP.
+          ENDIF.
+
+          READ TABLE lt_filter_ranges_bldatbas WITH KEY sign = 'I' INTO DATA(ls_bldatbas).
+          IF sy-subrc = 0.
+            ls_filter_ranges_bldat-low = ls_bldatbas-low.
+            INSERT ls_filter_ranges_bldatbas INTO TABLE lt_filter_ranges_bldat.
+          ENDIF.
+
+          LOOP AT lt_filter_ranges_bldat INTO DATA(ls_bldat).
+            READ TABLE lt_filter_ranges_bldatbit WITH KEY sign = 'I' INTO DATA(ls_bldatbit).
+            IF sy-subrc = 0.
+              ls_bldat-high = ls_bldatbit-low.
+              ls_bldat-option = 'BT'.
+              MODIFY lt_filter_ranges_bldat FROM ls_bldat.
+            ENDIF.
+          ENDLOOP.
+
+          SELECT * FROM zhvl_fi_gm_mhby INTO TABLE @DATA(lt_mhby).
+
+          SELECT bsis_view~bukrs,
+                   bsis_view~gjahr,
+                   bsis_view~belnr,
+                   bsis_view~bldat,
+                   bsis_view~budat,
+                   bsis_view~hkont,
+                   bsis_view~shkzg,
+                   bsis_view~dmbtr,
+                   bsis_view~buzid,
+                   bsis_view~mwsts,
+                   bsis_view~waers,
+                   bkpf~xblnr,
+                   bkpf~blart,
+                   bkpf~awkey,
+                   bkpf~awtyp FROM bsis_view JOIN bkpf ON bkpf~bukrs = bsis_view~bukrs
+                   AND bkpf~belnr = bsis_view~belnr AND bkpf~gjahr = bsis_view~gjahr
+                  FOR ALL ENTRIES IN @lt_mhby
+                  WHERE bsis_view~hkont = @lt_mhby-hesapnumarasi
+                   AND bkpf~blart NE 'TK'
+                   AND bkpf~stblg EQ @space
+                   AND bsis_view~bukrs IN @lt_filter_ranges_sirketkodu
+                   AND bsis_view~gjahr IN @lt_filter_ranges_maliyil
+                   AND bsis_view~bldat IN @lt_filter_ranges_bldat
+                   AND bsis_view~segment IN @lt_filter_ranges_bolum
+                   "AND bsis_view~hkont IN @lt_filter_ranges_hesapno
+            INTO TABLE @DATA(gt_bsis).
+
+          LOOP AT gt_bsis INTO DATA(ls_bsis).
+
+            ls_muhtasar-belnr = ls_bsis-belnr.
+            ls_muhtasar-gjahr = ls_bsis-gjahr.
+            ls_muhtasar-bldat = ls_bsis-bldat.
+            ls_muhtasar-budat = ls_bsis-budat.
+            ls_muhtasar-hesapno = ls_bsis-hkont.
+
+            SELECT SINGLE blart, gibtype, ltext  FROM /aer/el_gibtype
+            INTO (@DATA(lv_blart), @DATA(lv_gibtype),@DATA(lv_ltext))
+            WHERE blart = @ls_bsis-blart.
+
+*            IF lv_blart = 'SM'.
+*              ls_muhtasar-blarttxt = lv_ltext.
+*            ENDIF.
+*
+*            IF lv_blart = 'GP'.
+*              ls_muhtasar-blarttxt = lv_ltext.
+*            ENDIF.
+*
+*
+*            IF lv_blart = 'AI'
+*             OR lv_blart = 'BF'
+*             OR lv_blart = 'BI'
+*             OR lv_blart = 'DI'
+*             OR lv_blart = 'DR'
+*             OR lv_blart = 'FA'
+*             OR lv_blart = 'FD'
+*             OR lv_blart = 'IF'
+*             OR lv_blart = 'KF'
+*             OR lv_blart = 'KR'
+*             OR lv_blart = 'SF'
+*             OR lv_blart = 'SI'
+*             OR lv_blart = 'YF'.
+*
+*              ls_muhtasar-blarttxt = lv_ltext.
+*
+*            ENDIF.
+
+            IF lv_blart = 'DA'
+            OR lv_blart = 'DS'
+            OR lv_blart = 'DZ'
+            OR lv_blart = 'GP'
+            OR lv_blart = 'KA'
+            OR lv_blart = 'KS'
+            OR lv_blart = 'KT'
+            OR lv_blart = 'KZ'
+            OR lv_blart = 'SH'.
+
+              ls_muhtasar-blarttxt = 'Diğer'.
+
+            ELSE.
+
+              ls_muhtasar-blarttxt = lv_ltext.
+
+            ENDIF.
+
+            SELECT SINGLE
+                          hsl,
+                          gkont
+                     INTO (@DATA(lv_hsl),@DATA(lv_gkont) )
+                     FROM acdoca WHERE rbukrs EQ @ls_bsis-bukrs
+                                 AND belnr EQ @ls_bsis-belnr
+                                 AND gjahr EQ @ls_bsis-gjahr
+                                 "AND koart EQ 'K'
+                                 AND rldnr = '0L'
+                                 AND racct = @ls_bsis-hkont.
+
+            SELECT SINGLE lifnr,
+                          drcrk
+                     INTO (@DATA(lv_lifnr),@DATA(lv_shkzg)  )
+                     FROM acdoca WHERE rbukrs EQ @ls_bsis-bukrs
+                                 AND belnr EQ @ls_bsis-belnr
+                                 AND gjahr EQ @ls_bsis-gjahr
+                                 AND koart EQ 'K'
+                                 AND rldnr = '0L'.
+
+            SELECT SINGLE ktosl
+            INTO @DATA(lv_ktosl)
+            FROM acdoca WHERE rbukrs EQ @ls_bsis-bukrs
+            AND belnr EQ @ls_bsis-belnr
+            AND gjahr EQ @ls_bsis-gjahr
+            AND koart EQ 'S'
+            AND ktosl = 'ZTA'
+            AND rldnr = '0L'.
+
+            IF lv_ktosl = 'ZTA'.
+              ls_muhtasar-kdvtevkifatkodu = '3'.
+              ls_muhtasar-kdvtevkifattanim = 'Tevkifat yapıldı'.
+            ELSE.
+              ls_muhtasar-kdvtevkifatkodu = '0'.
+              ls_muhtasar-kdvtevkifattanim = 'Tevkifat yapılmadı'.
+            ENDIF.
+            CLEAR lv_ktosl.
+            ls_muhtasar-satici = lv_lifnr.
+
+            SELECT SINGLE hsl FROM acdoca INTO @DATA(lv_hslbelge)
+             WHERE rbukrs EQ @ls_bsis-bukrs
+               AND belnr EQ @ls_bsis-belnr
+               AND gjahr EQ @ls_bsis-gjahr
+               AND racct = @lv_gkont
+               AND rldnr = '0L'.
+
+            IF lv_hslbelge LT 0.
+              ls_muhtasar-belgetoplamtutar = lv_hslbelge * -1.
+            ELSE.
+              ls_muhtasar-belgetoplamtutar = lv_hslbelge.
+            ENDIF.
+
+            ls_muhtasar-faturano = ls_bsis-xblnr.
+            ls_muhtasar-belgeparabirimi = ls_bsis-waers.
+            IF lv_hsl LT 0.
+              ls_muhtasar-vergitutari = lv_hsl * -1.
+            ELSE.
+              ls_muhtasar-vergitutari = lv_hsl.
+            ENDIF.
+            ls_muhtasar-borcalacak = ls_bsis-shkzg.
+
+            IF  ls_bsis-shkzg = 'S'.
+              ls_muhtasar-borcalacakmetni = 'Borç'.
+            ELSEIF ls_bsis-shkzg = 'H'.
+              ls_muhtasar-borcalacakmetni = 'Alacak'.
+            ENDIF.
+
+            SELECT SINGLE txt50 INTO @DATA(lv_txt50)
+                    FROM skat WHERE spras EQ 'T'"@sy-langu
+                                AND ktopl EQ 'TRT'
+                                AND saknr EQ @ls_bsis-hkont.
+
+            ls_muhtasar-anahesapmetin = lv_txt50.
+
+            SELECT SINGLE land1, anred, name1, name2, name3, name4, adrnr, stcd1, stcd2, stcd3
+                     INTO (@DATA(lv_land1),
+                     @DATA(lv_anred),
+                     @DATA(lv_name1),
+                     @DATA(lv_name2),
+                     @DATA(lv_name3),
+                     @DATA(lv_name4),
+                     @DATA(lv_adrnr),
+                     @DATA(lv_stcd1),
+                     @DATA(lv_stcd2),
+                     @DATA(lv_stcd3))
+                     FROM lfa1 WHERE lifnr EQ @lv_lifnr.
+
+            IF lv_anred = 'Şirket'.
+
+              SELECT SINGLE name_org1, name_org2, name_org3, name_org4 FROM but000
+              INTO @DATA(ls_sirket) WHERE partner = @lv_lifnr.
+
+              CONCATENATE ls_sirket-name_org1 ls_sirket-name_org2 ls_sirket-name_org3 ls_sirket-name_org4
+              INTO ls_muhtasar-adunvan SEPARATED BY space.
+
+              SELECT SINGLE taxnum FROM dfkkbptaxnum INTO @ls_muhtasar-vergino
+              WHERE partner = @lv_lifnr AND taxtype = 'TR2'.
+
+            ELSE.
+
+              SELECT SINGLE name_first, name_last FROM but000
+                INTO @DATA(ls_kisi) WHERE partner = @lv_lifnr.
+
+              CONCATENATE ls_kisi-name_first ls_kisi-name_last
+              INTO ls_muhtasar-adunvan SEPARATED BY space.
+
+              SELECT SINGLE taxnum FROM dfkkbptaxnum  INTO @ls_muhtasar-tcno
+              WHERE partner = @lv_lifnr AND taxtype = 'TR4'.
+
+            ENDIF.
+
+            SELECT SINGLE landa INTO @DATA(lv_landa)
+            FROM t005 WHERE land1 = @lv_land1.
+
+            ls_muhtasar-ulkekodu = lv_landa.
+
+            DATA(lv_countstcd) = strlen( lv_stcd2 ).
+
+*            CONCATENATE lv_name1 lv_name2 lv_name3 lv_name4 INTO ls_muhtasar-adunvan
+*            SEPARATED BY space.
+
+            ls_muhtasar-vergidairesi = lv_stcd1.
+
+            SELECT SINGLE city1, post_code1, street, name_co, str_suppl1, region
+                INTO (@DATA(lv_city1),
+                @DATA(lv_post),
+                @DATA(lv_street),
+                @DATA(lv_nameco),
+                @DATA(lv_str),
+                @DATA(lv_region))
+            FROM adrc WHERE addrnumber EQ @lv_adrnr.
+
+            SELECT SINGLE bezei INTO @DATA(lv_bezei) FROM t005u
+              WHERE spras EQ 'T'
+                AND land1 EQ @lv_land1
+                AND bland EQ @lv_region.
+
+            CONCATENATE lv_nameco lv_str lv_street lv_post lv_city1 lv_bezei
+            INTO DATA(lv_adres) SEPARATED BY ' '.
+
+            ls_muhtasar-adres = lv_adres.
+
+            SELECT SINGLE * FROM cvi_vend_link INTO @DATA(ls_link)
+            WHERE vendor = @lv_lifnr.
+
+            SELECT SINGLE addrnumber FROM but020 INTO @ls_muhtasar-adresno
+             WHERE partner = @lv_lifnr.
+
+            "yeni istek bdp kodu
+            SELECT SINGLE zztvkfd FROM bseg INTO @DATA(lv_zztvkfd)
+            WHERE belnr = @ls_bsis-belnr
+            AND gjahr = @ls_bsis-gjahr
+            AND bukrs = @ls_bsis-bukrs
+            AND hkont LIKE '360%'.
+
+            IF lv_zztvkfd IS INITIAL.
+
+              SELECT SINGLE awkey FROM bkpf INTO @DATA(lv_awkey) WHERE belnr = @ls_bsis-belnr
+              AND gjahr = @ls_bsis-gjahr
+              AND bukrs = @ls_bsis-bukrs.
+
+              IF lv_awkey IS NOT INITIAL.
+
+                SELECT SINGLE zztvkfd1 FROM rbws
+                WHERE belnr = @lv_awkey(10) AND gjahr = @lv_awkey+10(4)
+                AND zztvkfd1 IS NOT INITIAL INTO @DATA(lv_zztvkfd1).
+
+              ENDIF.
+            ENDIF.
+
+            IF  lv_zztvkfd IS NOT INITIAL.
+
+              SELECT SINGLE bdpct, bdpcd INTO ( @DATA(lv_bdpct),@DATA(lv_bdpcd) ) FROM zhvl_fi_exmptt
+              WHERE bdpcd = @lv_zztvkfd AND spras = 'T' AND bdpty = 'M'.
+
+            ENDIF.
+
+            IF  lv_zztvkfd1 IS NOT INITIAL.
+
+              SELECT SINGLE bdpct, bdpcd INTO ( @lv_bdpct,@lv_bdpcd ) FROM zhvl_fi_exmptt
+              WHERE bdpcd = @lv_zztvkfd1 AND spras = 'T' AND bdpty = 'M'.
+
+            ENDIF.
+
+            ls_muhtasar-bdpkodu = lv_bdpcd.
+            ls_muhtasar-bdpaciklama = lv_bdpct.
+
+            APPEND ls_muhtasar TO lt_muhtasar.
+            CLEAR: ls_muhtasar.
+
+          ENDLOOP.
+
+          LOOP AT lt_muhtasar ASSIGNING FIELD-SYMBOL(<lfs_out_line_item>)
+          FROM lv_skip TO lv_max_rows.
+
+            ls_muhtasar2-sirano = sy-tabix.
+            ls_muhtasar2-belnr = <lfs_out_line_item>-belnr.
+            ls_muhtasar2-gjahr = <lfs_out_line_item>-gjahr.
+            ls_muhtasar2-bldat = <lfs_out_line_item>-bldat.
+            ls_muhtasar2-budat = <lfs_out_line_item>-budat.
+            ls_muhtasar2-hesapno = <lfs_out_line_item>-hesapno.
+            ls_muhtasar2-anahesapmetin = <lfs_out_line_item>-anahesapmetin.
+            ls_muhtasar2-vergidairesi = <lfs_out_line_item>-vergidairesi.
+            ls_muhtasar2-ulkekodu = <lfs_out_line_item>-ulkekodu.
+            ls_muhtasar2-vergino = <lfs_out_line_item>-vergino.
+            ls_muhtasar2-tcno = <lfs_out_line_item>-tcno.
+            ls_muhtasar2-adresno = <lfs_out_line_item>-adresno.
+            ls_muhtasar2-hesapno = <lfs_out_line_item>-hesapno.
+            ls_muhtasar2-satici = <lfs_out_line_item>-satici.
+            ls_muhtasar2-adunvan = <lfs_out_line_item>-adunvan.
+            ls_muhtasar2-adres = <lfs_out_line_item>-adres.
+            ls_muhtasar2-belgetoplamtutar = <lfs_out_line_item>-belgetoplamtutar.
+            ls_muhtasar2-vergitutari = <lfs_out_line_item>-vergitutari.
+            ls_muhtasar2-belgeparabirimi = <lfs_out_line_item>-belgeparabirimi.
+            ls_muhtasar2-borcalacak = <lfs_out_line_item>-borcalacak.
+            ls_muhtasar2-borcalacakmetni = <lfs_out_line_item>-borcalacakmetni.
+            ls_muhtasar2-faturano = <lfs_out_line_item>-faturano.
+            ls_muhtasar2-bdpkodu = <lfs_out_line_item>-bdpkodu.
+            ls_muhtasar2-bdpaciklama = <lfs_out_line_item>-bdpaciklama.
+            ls_muhtasar2-kdvtevkifatkodu = <lfs_out_line_item>-kdvtevkifatkodu.
+            ls_muhtasar2-kdvtevkifattanim = <lfs_out_line_item>-kdvtevkifattanim.
+            ls_muhtasar2-blarttxt = <lfs_out_line_item>-blarttxt.
+            APPEND ls_muhtasar2 TO lt_muhtasar2.
+            CLEAR  ls_muhtasar2.
+          ENDLOOP.
+
+*          LOOP AT lt_muhtasar2 INTO DATA(ls_muht3) GROUP BY lv_sort_string.
+*          APPEND ls_muht3 TO lt_muhtasar4.
+*          ENDLOOP.
+
+          "Set total no. of records
+          io_response->set_total_number_of_records( lines( lt_muhtasar ) ).
+          "Output data
+          io_response->set_data( lt_muhtasar2 ).
+        ENDIF.
+
+      CATCH  cx_rfc_dest_provider_error INTO DATA(lx_dest).
+
+    ENDTRY.
+
+  ENDMETHOD.
+ENDCLASS.
