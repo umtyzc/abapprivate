@@ -1,0 +1,100 @@
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: { typeName: 'Komisyon Bilgileri',
+                typeNamePlural: 'Komisyon Bilgileri',
+                title: { type: #STANDARD, value: 'Kombslid' }
+              }
+//                presentationVariant: [{ sortOrder: [{ by: 'Belsno', direction:  #ASC  }], visualizations: [{type: #AS_LINEITEM}] }]
+      }
+annotate view ZHVL_MM_C_HUR_KOM with
+{
+
+  @UI.facet: [ { id:            'HurdaKom',
+                 purpose:       #STANDARD,
+                 type:          #IDENTIFICATION_REFERENCE,
+                 label:         'Komisyon Bilgileri',
+                 position:      10 }
+
+  ]
+
+  @UI: { lineItem:[ { position: 10 , label: 'Komisyon ID'}
+  //   {
+  //      label: 'Komisyon Detaylarını Getir',
+  //      dataAction: 'Copy',
+  //      type: #FOR_ACTION,
+  //      position: 10
+  //
+  //   }
+  ],
+           identification: [ { position: 10 } ]
+    //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+    }
+  Kombslid;
+  //  @UI: { lineItem:[ { position: 20 , label: 'Satır Numarası'} ],
+  //         identification: [ { position: 20 } ]
+  //  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  //  }
+  //  Hurdauuid;
+  //  @UI: { lineItem:[ { position: 20 , label: 'Satır Numarası'} ],
+  //         identification: [ { position: 20 } ]
+  //  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  //  }
+  //  Hurdakomuuid;
+  @UI: { lineItem:[ { position: 20 , label: 'Görev Tipi'} ],
+       identification: [ { position: 20 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  Gorevtipi;
+  @UI: { lineItem:[ { position: 30 , label: 'Görev Tipi Tanımı'} ],
+     identification: [ { position: 30 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  Gtanim;
+  @UI: { lineItem:[ { position: 40 , label: 'Sayaç'} ],
+         identification: [ { position: 20 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  @UI.hidden: true
+  Sayac;
+  @UI: { lineItem:[ { position: 50 , label: 'Onay Sıra'} ],
+         identification: [ { position: 50 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  Onaysira;
+  @UI: { lineItem:[ { position: 60 , label: 'WorkItem ID'} ],
+         identification: [ { position: 40 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  @UI.hidden: true
+  WiId;
+  @UI: { lineItem:[ { position: 70 , label: 'Personel No'} ],
+         identification: [ { position: 70 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  @Consumption: { valueHelpDefinition: [{ entity:{  element: 'Opernr', name: 'ZHVL_MM_VH_PERNR_UNIFINAL' } }],
+  valueHelpDefinition: [{additionalBinding: [{element: 'Kombslid', localElement: 'Kombslid' }, {element: 'Onaysira', localElement: 'Onaysira' }]}],
+  filter: { multipleSelections: true, selectionType: #SINGLE  }
+  }
+  Opernr;
+  @UI: { lineItem:[ { position: 80 , label: 'Ad'} ],
+         identification: [ { position: 80 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  Vnamc;
+  @UI: { lineItem:[ { position: 90 , label: 'Soyad'} ],
+         identification: [ { position: 90 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  Nchmc;
+  @UI: { lineItem:[ { position: 100 , label: 'Unvanı'} ],
+       identification: [ { position: 100 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  Stext;
+  @UI: { lineItem:[ { position: 110 , label: 'Organizasyon Birimi'} ],
+         identification: [ { position: 110 } ]
+  //         fieldGroup:     [ { qualifier: 'Fg1' , position: 20 }]
+  }
+  mcstext;
+
+}
