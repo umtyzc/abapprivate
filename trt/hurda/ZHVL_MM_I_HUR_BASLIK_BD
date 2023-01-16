@@ -1,0 +1,206 @@
+managed; with draft;
+
+define behavior for ZHVL_MM_I_HUR_BASLIK alias Hurdabaslik
+implementation in class ZBP_HVL_MM_I_HUR_BASLIK unique
+persistent table zhvl_mm_hur_basl
+draft table zhvl_mm_hurbdrft
+lock master total etag LastChangedAt
+//lock master
+authorization master ( instance )
+etag master LocalLastChangedAt
+
+{
+
+  create;
+  update ( features : instance );
+  delete;
+  action ( features : instance ) SendForApproval result [1] $self;
+  action ( features : instance ) HurdaCikisi result [1] $self;
+  action ( features : instance ) customdel result [1] $self;
+  static action Copy parameter ZD_CREATEHURDAPARAM result [0..1] $self;
+  action ( features : instance ) Komisyon result [0..1] $self;
+  association _Hurdakalem { create ( features : instance, precheck ); with draft; }
+  association _HurdaKom { create ( features : instance ); with draft; }
+
+  //  draft determine action Prepare
+  //  {
+  //    validation charg_control;
+  //  }
+
+  field ( numbering : managed, readonly ) Hurdauuid;
+  field ( readonly ) BelNo, CreatedAt, CreatedBy, BelStatu, KomID, Mblnr;
+  //  A little red star symbol will then be shown in the SAP Fiori elements UI.
+  field ( mandatory ) Werks, Lgort, Bldat, Budat;
+  //validation header_data on save { create; field Lgort, Werks; }
+  validation mandatory_data on save { field Werks, Lgort, Bldat, Budat; create; }
+  determination calculateBelNo on save { create; }
+  determination fill_default_values on modify { create; }
+
+  mapping for zhvl_mm_hur_basl
+  {
+    Hurdauuid = hurdauuid;
+    BelNo = bel_no;
+    BelStatu = bel_statu;
+    BelTxt = bel_txt;
+    KomId = kom_id;
+    Werks = werks;
+    Lgort = lgort;
+    Kostl = kostl;
+    Bldat = bldat;
+    Budat = budat;
+    createdby = created_by;
+    createdat = created_at;
+    lastchangedby = last_changed_by;
+    lastchangedat = last_changed_at;
+    locallastchangedat = local_last_changed_at;
+    Wi_id = wi_id;
+  }
+}
+
+define behavior for ZHVL_MM_I_HUR_KALEM alias Hurdakalem
+implementation in class ZBP_HVL_MM_I_HUR_KALEM unique
+persistent table zhvl_mm_hur_kale
+draft table zhvl_mm_hurkdrft
+lock dependent by _Hurdabaslik
+authorization dependent by _Hurdabaslik
+etag master LocalLastChangedAt
+{
+
+  update ( precheck, features : instance  );
+  delete ( features : instance );
+  association _Hurdabaslik { with draft; }
+  association _Hurdasern { create ( features : instance ); with draft; }
+  field ( numbering : managed, readonly ) Hurdakalemuuid;
+  field ( readonly : update ) Hurdauuid;
+  field ( readonly ) BelNo, BelSno, Werks, Lgort, Meins;
+  field ( mandatory ) Matnr, Menge;
+  determination calculateBelSno on save { create; }
+  determination fill_input_dependent_values on modify { create; }
+  determination fill_default_entry_unit on modify { field Matnr; }
+  validation mandatory_validate on save { field Matnr, Menge; create;update; }
+  validation material_validate on save { field Charg; create; }
+
+
+  //  determine action ( authorization : none ) Validate
+  //
+  //  {
+  //    //validation material_validate;
+  //    validation mandatory_validate;
+  //  }
+
+  mapping for zhvl_mm_hur_kale
+  {
+    Hurdauuid = hurdauuid;
+    Hurdakalemuuid = hurdakalemuuid;
+    BelNo = bel_no;
+    BelSno = bel_sno;
+    BelStx = bel_stx;
+    Werks = werks;
+    Lgort = lgort;
+    Matnr = matnr;
+    Meins = meins;
+    Menge = menge;
+    Charg = charg;
+    Grund = grund;
+    createdat = created_at;
+    lastchangedby = last_changed_by;
+    lastchangedat = last_changed_at;
+    locallastchangedat = local_last_changed_at;
+  }
+}
+
+
+define behavior for ZHVL_MM_I_HUR_KOM alias HurdaKom
+implementation in class ZBP_HVL_MM_I_HUR_KOM unique
+persistent table zhvl_mm_hur_kom
+draft table zhvl_mm_hurkodrf
+lock dependent by _Hurdabaslik
+authorization dependent by _Hurdabaslik
+etag master LocalLastChangedAt
+{
+
+  update ( precheck );
+  delete ( features : instance );
+  action ( features : instance ) KomisyonGetir result [1] $self;
+  association _Hurdabaslik { with draft; }
+  field ( numbering : managed, readonly ) Hurdakomuuid;
+  field ( readonly : update ) Hurdauuid;
+  field ( mandatory ) Opernr;
+  field ( readonly ) Gorevtipi, Gtanim, Onaysira, Sayac, WiId, Kombslid, Mcstext, Nchmc, Stext, Vnamc;
+  //validation material_validate on save { field Charg; create; }
+  //determination calculateBelSno on save { create; }
+  //determination fill_input_dependent_values on modify { field Opernr; }
+  validation check_pernr on save { field Opernr;create;update; }
+  //determination fill_default_entry_unit on modify { field Matnr; }
+  //validation material_validate on save { field Charg; create; }
+
+//  determine action ( authorization : none ) Validate
+//
+//  {
+//
+//
+//    validation check_pernr;
+//  }
+
+  mapping for zhvl_mm_hur_kom
+  {
+    Hurdauuid = hurdauuid;
+    Hurdakomuuid = hurdakomuuid;
+    Kombslid = kombslid;
+    Gorevtipi = gorevtipi;
+    Gtanim = gtanim;
+    Onaysira = onaysira;
+    Opernr = opernr;
+//    Vnamc = vnamc;
+//    Nchmc = nchmc;
+//    Stext = stext;
+//    Mcstext = mc_stext;
+    Sayac = sayac;
+    createdat = created_at;
+    CreatedBy = created_by;
+    lastchangedby = lastchangedby;
+    lastchangedat = lastchangedat;
+    locallastchangedat = locallastchangedat;
+  }
+}
+
+define behavior for ZHVL_MM_I_HUR_SERN alias Hurdasern
+implementation in class ZBP_HVL_MM_I_HUR_SERNR unique
+persistent table zhvl_mm_hur_sern
+draft table zhvl_mm_hursdrft
+lock dependent by _Hurdabaslik
+authorization dependent by _Hurdabaslik
+etag master LocalLastChangedAt
+{
+  update ( precheck );
+  delete ( features : instance );
+
+  association _Hurdakalem { with draft; }
+  association _Hurdabaslik { with draft; }
+  field ( numbering : managed, readonly ) Hurdasernruuid;
+  field ( readonly : update ) Hurdauuid, Hurdakalemuuid;
+  field ( readonly ) BelNo, BelSno, Matnr, Lgort, Werks, Charg;
+
+  determination calculateBelSnoS on save { create; }
+  determination fill_input_dependent_values on modify { create; }
+
+  mapping for zhvl_mm_hur_sern
+  {
+    Hurdasernruuid = hurdasernruuid;
+    Hurdauuid = hurdauuid;
+    Hurdakalemuuid = hurdakalemuuid;
+    BelNo = bel_no;
+    BelSno = bel_sno;
+    Equnr = equnr;
+    Sernr = sernr;
+    Matnr = matnr;
+    Werks = werks;
+    Lgort = lgort;
+    Charg = charg;
+    Createdat = created_at;
+    Lastchangedby = last_changed_by;
+    Lastchangedat = last_changed_at;
+    Locallastchangedat = local_last_changed_at;
+
+  }
+}
