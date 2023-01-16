@@ -1,0 +1,28 @@
+@EndUserText.label: 'Hurda Serino Consumption View'
+@AccessControl.authorizationCheck: #CHECK
+@Search.searchable: true
+@Metadata.allowExtensions: true
+define view entity ZHVL_MM_C_HUR_SERN
+  as projection on ZHVL_MM_I_HUR_SERN as Hurdasern
+{
+  key    Hurdasernruuid,
+  key    Hurdauuid,
+  key    Hurdakalemuuid,
+         @Search.defaultSearchElement: true
+         BelNo,
+         BelSno,
+         Equnr,
+         Werks,
+         Lgort,
+         Matnr,
+         Charg,
+         Sernr,
+         CreatedAt,
+         CreatedBy,
+         LastChangedAt,
+         LastChangedBy,
+         LocalLastChangedAt,
+         /* Associations */
+         _Hurdakalem  : redirected to parent ZHVL_MM_C_HUR_KALEM,
+         _Hurdabaslik : redirected to ZHVL_MM_C_HUR_BASLIK
+}
