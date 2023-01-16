@@ -1,0 +1,39 @@
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Hurda Kalem view'
+
+define view entity ZHVL_MM_I_HUR_KALEM
+  as select from zhvl_mm_hur_kale as Hurdakalem
+
+  association        to parent ZHVL_MM_I_HUR_BASLIK as _Hurdabaslik   on $projection.Hurdauuid = _Hurdabaslik.Hurdauuid
+  association [1..1] to ZHVL_MM_MAKTX               as _malzeme       on $projection.Matnr = _malzeme.Matnr
+  association [1..1] to ZHVL_MM_VH_HRKT_NEDENI      as _hareketnedeni on $projection.Grund = _hareketnedeni.Grund
+  composition [0..*] of ZHVL_MM_I_HUR_SERN          as _Hurdasern
+
+{
+  key Hurdakalem.hurdakalemuuid as Hurdakalemuuid,
+  key Hurdakalem.hurdauuid      as Hurdauuid,
+      Hurdakalem.bel_no         as BelNo,
+      Hurdakalem.bel_sno        as BelSno,
+      Hurdakalem.matnr          as Matnr,
+      Hurdakalem.charg          as Charg,
+      Hurdakalem.menge          as Menge,
+      Hurdakalem.meins          as Meins,
+      Hurdakalem.grund          as Grund,
+      Hurdakalem.bel_stx        as BelStx,
+      Hurdakalem.werks          as Werks,
+      Hurdakalem.lgort          as Lgort,
+      @Semantics.user.createdBy: true
+      created_by                as CreatedBy,
+      @Semantics.systemDateTime.createdAt: true
+      created_at                as CreatedAt,
+      @Semantics.user.lastChangedBy: true
+      last_changed_by           as LastChangedBy,
+      @Semantics.systemDateTime.lastChangedAt: true
+      last_changed_at           as LastChangedAt,
+      @Semantics.systemDateTime.localInstanceLastChangedAt: true
+      local_last_changed_at     as LocalLastChangedAt,
+      _Hurdabaslik,
+      _Hurdasern,
+      _malzeme,
+      _hareketnedeni
+}
