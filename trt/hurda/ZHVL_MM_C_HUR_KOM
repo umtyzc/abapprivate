@@ -1,0 +1,33 @@
+@EndUserText.label: 'Projection View Komisyon'
+@AccessControl.authorizationCheck: #CHECK
+@Metadata.allowExtensions: true
+define view entity ZHVL_MM_C_HUR_KOM
+  as projection on ZHVL_MM_I_HUR_KOM
+{
+
+  key Hurdauuid,
+  key Hurdakomuuid,
+      Kombslid,
+      @ObjectModel.text.element: ['Gtanim']
+      Gorevtipi,
+      @Semantics.text: true
+      Gtanim,
+      Sayac,
+      Onaysira,
+      WiId,
+      //      Nchmc,
+      //      Vnamc,
+      //      Stext,
+      //      Mcstext,
+      Opernr,
+      _P02.Vnamc,
+      _P02.Nchmc,
+      _P02.Stext,
+      _P02.Mc_stext,
+      CreatedBy,
+      CreatedAt,
+      Locallastchangedat,
+      /* Associations */
+      _Hurdabaslik : redirected to parent ZHVL_MM_C_HUR_BASLIK
+
+}
