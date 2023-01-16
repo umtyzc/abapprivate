@@ -1,0 +1,67 @@
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Hurda Başlık view'
+//@OData.publish: true
+//@VDM.viewType: #CONSUMPTION
+
+define root view entity ZHVL_MM_I_HUR_BASLIK
+  as select distinct from zhvl_mm_hur_basl
+
+  association [0..*] to zhvl_mm_hur_mbel    as _Hurdacikis on  $projection.BelNo = _Hurdacikis.bel_no
+  association [1..1] to ZHVL_VH_WERKS       as _werks      on  $projection.Werks = _werks.Werks
+  association [1..1] to ZHVL_VH_LGORT       as _lgort      on  $projection.Lgort      = _lgort.Lgort
+                                                           and zhvl_mm_hur_basl.werks = _lgort.Werks
+  association [1..1] to ZHVL_MM_VH_KOMID    as _komis      on  $projection.KomId = _komis.Kombslid
+  association [1..1] to zhvl_mm_hur_stat    as _statu      on  $projection.BelStatu = _statu.bel_statu
+  association [1..1] to ZHVL_MM_VH_KOSTL    as _kostltext  on  $projection.Kostl = _kostltext.Kostl
+  composition [0..*] of ZHVL_MM_I_HUR_KALEM as _Hurdakalem
+  composition [0..*] of ZHVL_MM_I_HUR_KOM   as _HurdaKom
+
+{
+  key    hurdauuid              as Hurdauuid,
+         bel_no                 as BelNo,
+         bel_statu              as BelStatu,
+         kom_id                 as KomId,
+         werks                  as Werks,
+         lgort                  as Lgort,
+         kostl                  as Kostl,
+         bel_txt                as BelTxt,
+         bldat                  as Bldat,
+         budat                  as Budat,
+         max(_Hurdacikis.mblnr) as Mblnr,
+         @Semantics.user.createdBy: true
+         created_by             as CreatedBy,
+         @Semantics.systemDateTime.createdAt: true
+         created_at             as CreatedAt,
+         @Semantics.user.lastChangedBy: true
+         last_changed_by        as LastChangedBy,
+         @Semantics.systemDateTime.lastChangedAt: true
+         last_changed_at        as LastChangedAt,
+         @Semantics.systemDateTime.localInstanceLastChangedAt: true
+         local_last_changed_at  as LocalLastChangedAt,
+         wi_id                  as Wi_id,
+         _Hurdakalem,
+         _HurdaKom,
+         _werks,
+         _lgort,
+         _komis,
+         _statu,
+         _kostltext
+}
+group by
+  hurdauuid,
+  bel_no,
+  bel_statu,
+  kom_id,
+  werks,
+  lgort,
+  kostl,
+  bel_txt,
+  bldat,
+  budat,
+  //_Hurdacikis.mblnr,
+  created_by,
+  created_at,
+  last_changed_by,
+  last_changed_at,
+  local_last_changed_at,
+  wi_id
