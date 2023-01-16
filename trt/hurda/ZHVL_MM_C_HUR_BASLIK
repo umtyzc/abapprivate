@@ -1,0 +1,49 @@
+@EndUserText.label: 'Hurda Başlık Consumption View'
+@AccessControl.authorizationCheck: #CHECK
+@Search.searchable: true
+@Metadata.allowExtensions: true
+define root view entity ZHVL_MM_C_HUR_BASLIK
+  as projection on ZHVL_MM_I_HUR_BASLIK as Hurdabaslik
+
+{
+      @Search.defaultSearchElement: true
+  key Hurdauuid,
+      BelNo             ,
+      //Mblnr,
+      @ObjectModel.text.element: ['Statutanim']
+      BelStatu,
+      @Semantics.text:true
+      _statu.statu_text as Statutanim,
+      @ObjectModel.text.element: ['Komidtanim']
+      KomId,
+     @Semantics.text:true
+      _komis.Tanim      as Komidtanim,
+      @ObjectModel.text.element: ['Werkstanim']
+      Werks,
+      @Semantics.text:true
+      _werks.Name1      as Werkstanim,
+      @ObjectModel.text.element: ['Lgorttanim']
+      Lgort,
+      @Semantics.text:true
+      _lgort.lgobe      as Lgorttanim,
+      @ObjectModel.text.element: ['Ltext']
+      Kostl,
+      @Semantics.text:true
+      _kostltext.Ltext  as Ltext,
+      BelTxt,
+      Mblnr,
+      CreatedAt,
+      CreatedBy,
+      LastChangedAt,
+      LastChangedBy,
+      LocalLastChangedAt,
+      Bldat,
+      Budat,
+      Wi_id,
+      /* Associations */
+      _Hurdakalem : redirected to composition child ZHVL_MM_C_HUR_KALEM,
+      _HurdaKom   : redirected to composition child ZHVL_MM_C_HUR_KOM
+
+
+
+}
