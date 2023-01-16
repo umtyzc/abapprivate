@@ -1,0 +1,36 @@
+@EndUserText.label: 'Hurda Kalem Consumption View'
+@AccessControl.authorizationCheck: #CHECK
+@Search.searchable: true
+@Metadata.allowExtensions: true
+define view entity ZHVL_MM_C_HUR_KALEM
+  as projection on ZHVL_MM_I_HUR_KALEM as Hurdakalem
+{
+      @Search.defaultSearchElement: true
+  key Hurdakalemuuid,
+  key Hurdauuid,
+      BelNo,
+      BelSno,
+      @ObjectModel.text.element: ['Maktx']
+      Matnr,
+      @Semantics.text:true
+      _malzeme.Maktx       as Maktx,
+      Werks,
+      Lgort,
+      Charg,
+      @Semantics.quantity.unitOfMeasure: 'Meins'
+      Menge,
+      Meins,
+      @ObjectModel.text.element: ['Grtxt']
+      Grund,
+      _hareketnedeni.Grtxt as Grtxt,
+      BelStx,
+      CreatedBy,
+      CreatedAt,
+      LastChangedBy,
+      LastChangedAt,
+      LocalLastChangedAt,
+      /* Associations */
+      _Hurdabaslik : redirected to parent ZHVL_MM_C_HUR_BASLIK,
+      _Hurdasern   : redirected to composition child ZHVL_MM_C_HUR_SERN
+
+}
