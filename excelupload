@@ -1,0 +1,97 @@
+report  zuy_malzemekdvtabl.
+
+selection-screen begin of block b1 with frame title text-001 .
+parameters : p_fname like rlgrap-filename obligatory .
+selection-screen end of block b1 .
+
+at selection-screen on value-request for p_fname .
+  perform query_filename changing p_fname .
+
+start-of-selection .
+  perform upload_data .
+
+*&---------------------------------------------------------------------*
+*&      Form  QUERY_FILENAME
+*&---------------------------------------------------------------------*
+form query_filename  changing def_path .
+
+  data: lt_file type filetable,
+        lv_rc   like sy-subrc,
+        ls_file like line of lt_file.
+
+
+
+
+  call method cl_gui_frontend_services=>file_open_dialog
+    changing
+      file_table              = lt_file
+      rc                      = lv_rc
+    exceptions
+      file_open_dialog_failed = 1
+      cntl_error              = 2
+      error_no_gui            = 3
+      others                  = 4.
+  if sy-subrc eq 0.
+    read table lt_file into ls_file index 1.
+    def_path = ls_file-filename.
+  else.
+    message e002(z01) with 'Dosya bulunamadı.' .
+  endif.
+
+endform.                    " QUERY_FILENAME
+
+*&---------------------------------------------------------------------*
+*&      Form  UPLOAD_DATA
+*&---------------------------------------------------------------------*
+form upload_data .
+  data : rawdata(4096) type c occurs 0 .
+  data : begin of t_data occurs 0,
+    bismt like mara-bismt,
+    matnr like mara-matnr,
+    kbetr(40),
+    end of t_data.
+  data : lv_fname type string.
+  data: lv_indirimkdv(40).
+
+  data : begin of lt_fyt occurs 0 ,
+          kschl  like a911-kschl  ,
+          matnr  like a911-matnr  ,
+          kbetr  like konp-kbetr  ,
+          konwa  like konp-konwa  ,
+          kpein  like konp-kpein  ,
+         end of lt_fyt            .
+
+  call function 'SAPGUI_PROGRESS_INDICATOR'
+    exporting
+      text = 'Excel dosyası içeri okunuyor...'.
+
+  call function 'TEXT_CONVERT_XLS_TO_SAP'
+    exporting
+      i_tab_raw_data       = rawdata
+      i_filename           = p_fname
+    tables
+      i_tab_converted_data = t_data
+    exceptions
+      conversion_failed    = 1
+      others               = 2.
+
+  if sy-subrc <> 0 .
+    message e002(z01) with 'Dosya hatalı, SAP içine alınamadı.' .
+  endif.
+
+ " select a~kschl a~matnr k~kbetr k~konwa k~kpein
+  "into corresponding fields of table lt_fyt
+ " from a911 as a
+" inner join konp as k
+"    on a~knumh = k~knumh
+ "  for all entries in t_data
+ "where a~kappl = 'V'
+  " and a~kschl = 'ZF01'
+   "and a~datab le sy-datum
+   "and a~datbi ge sy-datum
+   "and a~matnr = t_data-matnr
+   "and k~loevm_ko = space.
+
+
+  modify zfiyatkdvt from table t_data.
+endform.                    " UPLOAD_DATA
